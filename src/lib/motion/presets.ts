@@ -8,10 +8,15 @@
  * Global language (spec §2), SLOWED DOWN throughout this file (deliberately
  * off-spec, at the user's request — everything outside the hero should read
  * as slower/buttery rather than the spec's snappier 2s baseline; the hero
- * cinematic in hero.ts is intentionally untouched):
- * - reveals are ~2.8s on expo/power-out tails; never ease-in for entrances
- * - staggers: fixed 0.15s per item, or total-window { amount: 0.6 } for
- *   word sequences >5 words / { amount: 0.25 } for clip & line wipes
+ * cinematic in hero.ts is intentionally untouched). Two rounds of tuning:
+ * durations alone weren't enough — power4/expo "out" curves front-load
+ * nearly all visible motion into the first fraction of a second no matter
+ * how long the tween nominally runs, so the softer `power2.out` replaces
+ * them for word/image/line reveals, spreading the motion across the whole
+ * duration instead of resolving it almost instantly.
+ * - reveals are ~3.6s, power2.out (never ease-in for entrances)
+ * - staggers: fixed ~0.22s per item, or total-window { amount: 0.85 } for
+ *   word sequences >5 words / { amount: 0.4 } for clip & line wipes
  * - hygiene: willChange set before / reset after, clearProps on clip-paths
  *
  * Static fallback: every factory checks `motionStatic()` (reduced motion OR
@@ -23,7 +28,7 @@ import { gsap, SplitText, motionStatic } from "./gsap";
 /** Timeline plus an optional cleanup that reverts DOM mutations (SplitText wrappers, injected overlay divs). `useReveal` calls it on unmount. */
 export type PresetTimeline = gsap.core.Timeline & { cleanup?: () => void };
 
-const REVEAL_DURATION = 2.8;
+const REVEAL_DURATION = 3.6;
 
 /** Merge several presets into one timeline (all starting at 0), preserving their cleanups. */
 export function compose(...presets: PresetTimeline[]): PresetTimeline {
@@ -48,8 +53,13 @@ export function wordMask(
   target: Element,
   {
     duration = REVEAL_DURATION,
+    ease = "power2.out",
     stagger,
-  }: { duration?: number; stagger?: number | gsap.StaggerVars } = {}
+  }: {
+    duration?: number;
+    ease?: string;
+    stagger?: number | gsap.StaggerVars;
+  } = {}
 ): PresetTimeline {
   const tl = gsap.timeline() as PresetTimeline;
   if (motionStatic()) {
@@ -72,8 +82,8 @@ export function wordMask(
     {
       yPercent: 0,
       duration,
-      ease: "power4.out",
-      stagger: stagger ?? (words.words.length > 5 ? { amount: 0.6 } : 0.15),
+      ease,
+      stagger: stagger ?? (words.words.length > 5 ? { amount: 0.85 } : 0.22),
     }
   );
   tl.eventCallback("onComplete", () => {
@@ -109,8 +119,8 @@ export function clipWipe(
     {
       clipPath: "inset(0 0% 0 0%)",
       duration: REVEAL_DURATION,
-      ease: "power3.out",
-      stagger: { amount: 0.25 },
+      ease: "power2.out",
+      stagger: { amount: 0.4 },
       clearProps: "clipPath",
     }
   );
@@ -128,11 +138,13 @@ export function fadeUp(
   {
     direction = "y",
     duration = REVEAL_DURATION,
-    stagger = 0.15,
-    fadeDuration = 0.2,
+    ease = "power2.out",
+    stagger = 0.22,
+    fadeDuration = 0.4,
   }: {
     direction?: "x" | "y";
     duration?: number;
+    ease?: string;
     stagger?: number;
     fadeDuration?: number;
   } = {}
@@ -150,7 +162,7 @@ export function fadeUp(
     {
       ...(direction === "x" ? { x: 0 } : { y: 0 }),
       duration,
-      ease: "expo.out",
+      ease,
       stagger,
     },
     0
@@ -206,8 +218,8 @@ export function lineWipe(
   tl.to(overlays, {
     scaleX: 0,
     duration: REVEAL_DURATION,
-    ease: "power3.out",
-    stagger: { amount: 0.25 },
+    ease: "power2.out",
+    stagger: { amount: 0.4 },
   });
   tl.eventCallback("onComplete", () => {
     gsap.set(overlays, { willChange: "auto" });
@@ -259,7 +271,7 @@ export function parallax(
 
 /** Spec trigger for parallax: loose/floaty scrub over the full pass-through — slowed (higher scrub lag) for a buttery feel. */
 export const parallaxTrigger = {
-  scrub: 2.2,
+  scrub: 3.2,
   start: "top bottom",
   end: "bottom top",
 } as const;
@@ -272,7 +284,7 @@ export const parallaxTrigger = {
  */
 export function fadeIn(
   targets: gsap.DOMTarget,
-  { duration = 1.6 }: { duration?: number } = {}
+  { duration = 2.4 }: { duration?: number } = {}
 ): PresetTimeline {
   const tl = gsap.timeline() as PresetTimeline;
   const els = gsap.utils.toArray<Element>(targets);
@@ -283,7 +295,7 @@ export function fadeIn(
   tl.fromTo(
     els,
     { autoAlpha: 0 },
-    { autoAlpha: 1, duration, ease: "none", stagger: 0.15 }
+    { autoAlpha: 1, duration, ease: "none", stagger: 0.2 }
   );
   return tl;
 }
@@ -305,14 +317,14 @@ export function chevronDrift(targets: gsap.DOMTarget): PresetTimeline {
   tl.fromTo(
     els.slice(1),
     { xPercent: -10, scale: 0.8, opacity: 0.1 },
-    { xPercent: 0, scale: 1, opacity: 1, ease: "none", stagger: 0.3 }
+    { xPercent: 0, scale: 1, opacity: 1, ease: "none", stagger: 0.45 }
   );
   return tl;
 }
 
 /** Spec §3.3 trigger for chevronDrift: very loose scrub, settled by mid-viewport — slowed further for a buttery drift. */
 export const chevronTrigger = {
-  scrub: 4.2,
+  scrub: 6,
   start: "top bottom",
   end: "center center",
 } as const;
@@ -337,12 +349,12 @@ export function footerReveal(target: gsap.DOMTarget): PresetTimeline {
   tl.fromTo(
     target,
     { yPercent: -40, scale: 0.98 },
-    { yPercent: 0, scale: 1, ease: "power1.out", duration: 1.4 },
+    { yPercent: 0, scale: 1, ease: "power1.out", duration: 2 },
     0
   ).fromTo(
     target,
     { autoAlpha: 0 },
-    { autoAlpha: 1, ease: "none", duration: 0.45 },
+    { autoAlpha: 1, ease: "none", duration: 0.65 },
     0
   );
   return tl;
@@ -376,8 +388,8 @@ export function footerLogoReveal(targets: gsap.DOMTarget): PresetTimeline {
       y: 0,
       autoAlpha: 1,
       duration: REVEAL_DURATION,
-      ease: "expo.out",
-      stagger: { each: 0.15, from: "end" },
+      ease: "power2.out",
+      stagger: { each: 0.22, from: "end" },
     }
   );
   tl.eventCallback("onComplete", () => {
@@ -420,8 +432,8 @@ export function counter(
   el.innerText = format(from);
   tl.to(proxy, {
     value: to,
-    duration: 2.2,
-    ease: digits <= 2 ? "power2.inOut" : "expo.out",
+    duration: 2.8,
+    ease: digits <= 2 ? "power2.inOut" : "power2.out",
     onUpdate: () => {
       el.innerText = format(proxy.value);
     },

@@ -5,10 +5,13 @@
  * ScrollTrigger via `useReveal` (which applies the trigger rules from the
  * spec: once-by-default, scrub reserved and passed explicitly).
  *
- * Global language (spec §2):
- * - reveals are 2s on expo/power-out tails; never ease-in for entrances
- * - staggers: fixed 0.1s per item, or total-window { amount: 0.4 } for
- *   word sequences >5 words / { amount: 0.15 } for clip & line wipes
+ * Global language (spec §2), SLOWED DOWN throughout this file (deliberately
+ * off-spec, at the user's request — everything outside the hero should read
+ * as slower/buttery rather than the spec's snappier 2s baseline; the hero
+ * cinematic in hero.ts is intentionally untouched):
+ * - reveals are ~2.8s on expo/power-out tails; never ease-in for entrances
+ * - staggers: fixed 0.15s per item, or total-window { amount: 0.6 } for
+ *   word sequences >5 words / { amount: 0.25 } for clip & line wipes
  * - hygiene: willChange set before / reset after, clearProps on clip-paths
  *
  * Static fallback: every factory checks `motionStatic()` (reduced motion OR
@@ -20,7 +23,7 @@ import { gsap, SplitText, motionStatic } from "./gsap";
 /** Timeline plus an optional cleanup that reverts DOM mutations (SplitText wrappers, injected overlay divs). `useReveal` calls it on unmount. */
 export type PresetTimeline = gsap.core.Timeline & { cleanup?: () => void };
 
-const REVEAL_DURATION = 2;
+const REVEAL_DURATION = 2.8;
 
 /** Merge several presets into one timeline (all starting at 0), preserving their cleanups. */
 export function compose(...presets: PresetTimeline[]): PresetTimeline {
@@ -41,7 +44,13 @@ export function compose(...presets: PresetTimeline[]): PresetTimeline {
  * Markup may ship `visibility: hidden` (e.g. Tailwind `invisible`) — the
  * factory reveals the container once initial states are applied.
  */
-export function wordMask(target: Element): PresetTimeline {
+export function wordMask(
+  target: Element,
+  {
+    duration = REVEAL_DURATION,
+    stagger,
+  }: { duration?: number; stagger?: number | gsap.StaggerVars } = {}
+): PresetTimeline {
   const tl = gsap.timeline() as PresetTimeline;
   if (motionStatic()) {
     gsap.set(target, { autoAlpha: 1 });
@@ -62,9 +71,9 @@ export function wordMask(target: Element): PresetTimeline {
     { yPercent: 115 },
     {
       yPercent: 0,
-      duration: REVEAL_DURATION,
+      duration,
       ease: "power4.out",
-      stagger: words.words.length > 5 ? { amount: 0.4 } : 0.1,
+      stagger: stagger ?? (words.words.length > 5 ? { amount: 0.6 } : 0.15),
     }
   );
   tl.eventCallback("onComplete", () => {
@@ -101,7 +110,7 @@ export function clipWipe(
       clipPath: "inset(0 0% 0 0%)",
       duration: REVEAL_DURATION,
       ease: "power3.out",
-      stagger: { amount: 0.15 },
+      stagger: { amount: 0.25 },
       clearProps: "clipPath",
     }
   );
@@ -116,7 +125,17 @@ export function clipWipe(
  */
 export function fadeUp(
   targets: gsap.DOMTarget,
-  { direction = "y" }: { direction?: "x" | "y" } = {}
+  {
+    direction = "y",
+    duration = REVEAL_DURATION,
+    stagger = 0.15,
+    fadeDuration = 0.2,
+  }: {
+    direction?: "x" | "y";
+    duration?: number;
+    stagger?: number;
+    fadeDuration?: number;
+  } = {}
 ): PresetTimeline {
   const tl = gsap.timeline() as PresetTimeline;
   const els = gsap.utils.toArray<Element>(targets);
@@ -130,15 +149,15 @@ export function fadeUp(
     direction === "x" ? { x: 70 } : { y: 70 },
     {
       ...(direction === "x" ? { x: 0 } : { y: 0 }),
-      duration: REVEAL_DURATION,
+      duration,
       ease: "expo.out",
-      stagger: 0.1,
+      stagger,
     },
     0
   ).fromTo(
     els,
     { autoAlpha: 0 },
-    { autoAlpha: 1, duration: 0.1, ease: "none", stagger: 0.1 },
+    { autoAlpha: 1, duration: fadeDuration, ease: "none", stagger },
     0
   );
   tl.eventCallback("onComplete", () => {
@@ -188,7 +207,7 @@ export function lineWipe(
     scaleX: 0,
     duration: REVEAL_DURATION,
     ease: "power3.out",
-    stagger: { amount: 0.15 },
+    stagger: { amount: 0.25 },
   });
   tl.eventCallback("onComplete", () => {
     gsap.set(overlays, { willChange: "auto" });
@@ -238,9 +257,9 @@ export function parallax(
   return tl;
 }
 
-/** Spec trigger for parallax: loose/floaty scrub over the full pass-through. */
+/** Spec trigger for parallax: loose/floaty scrub over the full pass-through — slowed (higher scrub lag) for a buttery feel. */
 export const parallaxTrigger = {
-  scrub: 1.5,
+  scrub: 2.2,
   start: "top bottom",
   end: "bottom top",
 } as const;
@@ -248,12 +267,12 @@ export const parallaxTrigger = {
 /**
  * fadeIn — plain opacity entrance (spec §2.1, their `<FadeIn>` wrapper).
  *
- * autoAlpha 0 → 1 over 1s, stagger 0.1. Used for low-emphasis items
- * (menu secondary links, captions).
+ * autoAlpha 0 → 1 over 1.6s (slowed from spec's 1s), stagger 0.15. Used for
+ * low-emphasis items (menu secondary links, captions).
  */
 export function fadeIn(
   targets: gsap.DOMTarget,
-  { duration = 1 }: { duration?: number } = {}
+  { duration = 1.6 }: { duration?: number } = {}
 ): PresetTimeline {
   const tl = gsap.timeline() as PresetTimeline;
   const els = gsap.utils.toArray<Element>(targets);
@@ -264,7 +283,7 @@ export function fadeIn(
   tl.fromTo(
     els,
     { autoAlpha: 0 },
-    { autoAlpha: 1, duration, ease: "none", stagger: 0.1 }
+    { autoAlpha: 1, duration, ease: "none", stagger: 0.15 }
   );
   return tl;
 }
@@ -286,14 +305,14 @@ export function chevronDrift(targets: gsap.DOMTarget): PresetTimeline {
   tl.fromTo(
     els.slice(1),
     { xPercent: -10, scale: 0.8, opacity: 0.1 },
-    { xPercent: 0, scale: 1, opacity: 1, ease: "none", stagger: 0.2 }
+    { xPercent: 0, scale: 1, opacity: 1, ease: "none", stagger: 0.3 }
   );
   return tl;
 }
 
-/** Spec §3.3 trigger for chevronDrift: very loose scrub, settled by mid-viewport. */
+/** Spec §3.3 trigger for chevronDrift: very loose scrub, settled by mid-viewport — slowed further for a buttery drift. */
 export const chevronTrigger = {
-  scrub: 3,
+  scrub: 4.2,
   start: "top bottom",
   end: "center center",
 } as const;
@@ -318,12 +337,12 @@ export function footerReveal(target: gsap.DOMTarget): PresetTimeline {
   tl.fromTo(
     target,
     { yPercent: -40, scale: 0.98 },
-    { yPercent: 0, scale: 1, ease: "power1.out", duration: 1 },
+    { yPercent: 0, scale: 1, ease: "power1.out", duration: 1.4 },
     0
   ).fromTo(
     target,
     { autoAlpha: 0 },
-    { autoAlpha: 1, ease: "none", duration: 0.3 },
+    { autoAlpha: 1, ease: "none", duration: 0.45 },
     0
   );
   return tl;
@@ -358,7 +377,7 @@ export function footerLogoReveal(targets: gsap.DOMTarget): PresetTimeline {
       autoAlpha: 1,
       duration: REVEAL_DURATION,
       ease: "expo.out",
-      stagger: { each: 0.1, from: "end" },
+      stagger: { each: 0.15, from: "end" },
     }
   );
   tl.eventCallback("onComplete", () => {
@@ -371,8 +390,8 @@ export function footerLogoReveal(targets: gsap.DOMTarget): PresetTimeline {
  * counter — number count-up (spec §2.1).
  *
  * Tweens a proxy value and rewrites innerText, locale-formatted with
- * decimals preserved (inferred from `to` unless given). 1.5s expo.out,
- * power2.inOut for numbers of ≤2 digits.
+ * decimals preserved (inferred from `to` unless given). 2.2s (slowed from
+ * spec's 1.5s) expo.out, power2.inOut for numbers of ≤2 digits.
  */
 export function counter(
   target: Element,
@@ -401,7 +420,7 @@ export function counter(
   el.innerText = format(from);
   tl.to(proxy, {
     value: to,
-    duration: 1.5,
+    duration: 2.2,
     ease: digits <= 2 ? "power2.inOut" : "expo.out",
     onUpdate: () => {
       el.innerText = format(proxy.value);

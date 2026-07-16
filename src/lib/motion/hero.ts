@@ -134,8 +134,15 @@ export function mountHero(section: HTMLElement): (() => void) | void {
     gsap.set(masked, { autoAlpha: 0 });
 
     // ---- Load timeline (spec: setTimeout 200ms kick-off).
-    const headlineTl = wordMask(headline);
-    const subTl = fadeUp(fadeItems);
+    // Explicit duration/stagger overrides pin these to the original spec
+    // numbers — the shared wordMask/fadeUp presets were slowed down
+    // site-wide for every OTHER section, but the hero cinematic stays as-is.
+    const headlineTl = wordMask(headline, { duration: 2, stagger: 0.1 });
+    const subTl = fadeUp(fadeItems, {
+      duration: 2,
+      stagger: 0.1,
+      fadeDuration: 0.1,
+    });
     cleanups.push(() => {
       headlineTl.cleanup?.();
       subTl.cleanup?.();

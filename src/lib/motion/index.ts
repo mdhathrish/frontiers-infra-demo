@@ -19,6 +19,9 @@ export {
   chevronDrift,
   chevronTrigger,
   counter,
+  footerReveal,
+  footerRevealTrigger,
+  footerLogoReveal,
   type PresetTimeline,
 } from "./presets";
 export { useReveal, type RevealOptions } from "./useReveal";

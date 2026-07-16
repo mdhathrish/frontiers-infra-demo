@@ -299,6 +299,75 @@ export const chevronTrigger = {
 } as const;
 
 /**
+ * footerReveal — the footer's scrubbed slide-up (spec §3.11).
+ *
+ * y "-40%" → "0%", scale .98 → 1, opacity fades in over just the first 30%
+ * of the scrub range, power1.out. Pair with `footerRevealTrigger`
+ * (scrub: true, top bottom → bottom bottom) — the classic "footer parked
+ * behind the page" reveal. Desktop-only is handled for free: `motionStatic()`
+ * already gates <768px, so no separate matchMedia is needed (spec §5 calls
+ * out the original's per-breakpoint gating as unnecessary complexity).
+ */
+export function footerReveal(target: gsap.DOMTarget): PresetTimeline {
+  const tl = gsap.timeline() as PresetTimeline;
+  if (motionStatic()) {
+    gsap.set(target, { autoAlpha: 1 });
+    return tl;
+  }
+  gsap.set(target, { willChange: "transform" });
+  tl.fromTo(
+    target,
+    { yPercent: -40, scale: 0.98 },
+    { yPercent: 0, scale: 1, ease: "power1.out", duration: 1 },
+    0
+  ).fromTo(
+    target,
+    { autoAlpha: 0 },
+    { autoAlpha: 1, ease: "none", duration: 0.3 },
+    0
+  );
+  return tl;
+}
+
+/** Spec §3.11 trigger for footerReveal: true scrub, pinned to the footer's own span. */
+export const footerRevealTrigger = {
+  scrub: true,
+  start: "top bottom",
+  end: "bottom bottom",
+} as const;
+
+/**
+ * footerLogoReveal — giant wordmark letters (spec §2 "one special" stagger).
+ *
+ * y 20 → 0 + fade, 2s expo.out, `stagger: { each: 0.1, from: "end" }` so the
+ * letters draw right-to-left. Triggered once — pass plain paths/spans.
+ */
+export function footerLogoReveal(targets: gsap.DOMTarget): PresetTimeline {
+  const tl = gsap.timeline() as PresetTimeline;
+  const els = gsap.utils.toArray<Element>(targets);
+  if (motionStatic()) {
+    gsap.set(els, { autoAlpha: 1 });
+    return tl;
+  }
+  gsap.set(els, { willChange: "transform" });
+  tl.fromTo(
+    els,
+    { y: 20, autoAlpha: 0 },
+    {
+      y: 0,
+      autoAlpha: 1,
+      duration: REVEAL_DURATION,
+      ease: "expo.out",
+      stagger: { each: 0.1, from: "end" },
+    }
+  );
+  tl.eventCallback("onComplete", () => {
+    gsap.set(els, { willChange: "auto" });
+  });
+  return tl;
+}
+
+/**
  * counter — number count-up (spec §2.1).
  *
  * Tweens a proxy value and rewrites innerText, locale-formatted with

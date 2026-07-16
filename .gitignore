@@ -32,3 +32,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# raw asset originals (curated + optimized versions live in public/assets/{hero,sections})
+/public/assets/raw/

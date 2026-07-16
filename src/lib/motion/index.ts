@@ -12,3 +12,4 @@ export {
   type PresetTimeline,
 } from "./presets";
 export { useReveal, type RevealOptions } from "./useReveal";
+export { mountHero, HERO_SCRUB, HERO_SCRUB_TRIGGER } from "./hero";

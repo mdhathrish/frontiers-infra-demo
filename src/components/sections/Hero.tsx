@@ -1,0 +1,244 @@
+"use client";
+/**
+ * Homepage hero — MOTION-SPEC.md §3.1.
+ *
+ * Purely structural: every animation lives in `mountHero` (src/lib/motion/hero.ts),
+ * which finds layers via `data-hero` attributes. The markup below is the
+ * static composed fallback (house + sky + full solid wordmark visible) that
+ * <768px viewports and prefers-reduced-motion users see as-is.
+ *
+ * Layout trick from the spec: no ScrollTrigger pinning — a 3,600px-tall
+ * section with a `position: sticky` full-viewport stage inside it.
+ *
+ * Layers (back → front): sky · mid cloud · house · front clouds · title ·
+ * wordmark (drawn SVG + house-image-masked SVG stacked for the crossfade).
+ */
+import Image from "next/image";
+import { useRef, type CSSProperties } from "react";
+import { useGSAP } from "@gsap/react";
+import { gsap, mountHero } from "@/lib/motion";
+import { LOGO_PATHS, LOGO_VIEWBOX } from "./heroLogoPaths";
+
+gsap.registerPlugin(useGSAP);
+
+/** Soft cloud puffs: CSS-masked copies of sky.webp sampling its cloudy band.
+    Each is a nested pair — the OUTER div takes the ambient looping drift,
+    the INNER div takes the intro fade/rise and the scroll-scrub parting, so
+    the two transforms compose instead of fighting (see mountHero). The front
+    pair rides high enough to overlap and swallow the building's base. */
+const CLOUD_MASK =
+  "radial-gradient(ellipse 50% 50% at 50% 50%, black 30%, transparent 72%)";
+
+const CLOUDS: { name: string; className: string; pos: string }[] = [
+  {
+    name: "cloud-l",
+    className: "left-[-18%] bottom-[-8%] w-[74vw] h-[52vh] z-30",
+    pos: "22% 74%",
+  },
+  {
+    name: "cloud-m",
+    className: "left-[16%] bottom-[-18%] w-[64vw] h-[38vh] z-10",
+    pos: "55% 66%",
+  },
+  {
+    name: "cloud-r",
+    className: "right-[-20%] bottom-[-10%] w-[80vw] h-[56vh] z-30",
+    pos: "82% 72%",
+  },
+];
+
+const cloudStyle = (pos: string): CSSProperties => ({
+  backgroundImage: "url(/assets/hero/sky.webp)",
+  backgroundSize: "175%",
+  backgroundPosition: pos,
+  WebkitMaskImage: CLOUD_MASK,
+  maskImage: CLOUD_MASK,
+  filter: "blur(10px) brightness(1.07)",
+});
+
+export default function Hero() {
+  const sectionRef = useRef<HTMLElement>(null);
+
+  useGSAP(
+    () => {
+      if (!sectionRef.current) return;
+      return mountHero(sectionRef.current);
+    },
+    { scope: sectionRef }
+  );
+
+  return (
+    <section
+      id="hero"
+      ref={sectionRef}
+      aria-label="Frontier Infra — find your next frontier"
+      className="relative h-svh md:h-[3600px] bg-[#7db3d6]"
+    >
+      {/* Full-viewport stage: sticky replicates the reference's fixed composite. */}
+      <div className="relative md:sticky md:top-0 h-svh md:h-screen overflow-hidden">
+        {/* Sky (outer = scrub zoom, inner = intro settle) */}
+        <div data-hero="sky" className="absolute inset-0">
+          <div data-hero="sky-inner" className="absolute inset-0">
+            <Image
+              src="/assets/hero/sky.webp"
+              alt=""
+              fill
+              priority
+              sizes="100vw"
+              className="object-cover"
+            />
+          </div>
+        </div>
+
+        {/* Clouds (mid puff sits behind the house, l/r overlap it in front;
+            outer = ambient loop, inner = intro + scrub) */}
+        {CLOUDS.map(({ name, className, pos }) => (
+          <div
+            key={name}
+            data-hero={name}
+            aria-hidden
+            className={`absolute ${className}`}
+          >
+            <div
+              data-hero={`${name}-inner`}
+              className="absolute inset-0"
+              style={cloudStyle(pos)}
+            />
+          </div>
+        ))}
+
+        {/* House (outer = scrub zoom/rise/dissolve, inner = intro rise).
+            The cutout asset is pre-leveled and its base alpha-fades out
+            (scripts/process-house-cutout.py), so it rests in the clouds
+            instead of ending on a hard edge. */}
+        <div
+          data-hero="house"
+          className="absolute z-20 inset-x-0 bottom-[-2%] flex justify-center"
+        >
+          <div
+            data-hero="house-inner"
+            className="relative w-[min(140vw,560px)] md:w-[min(66vw,1080px)] aspect-[2604/1492]"
+          >
+            <Image
+              src="/assets/hero/house-cutout.png"
+              alt=""
+              fill
+              priority
+              sizes="(min-width: 768px) 66vw, 140vw"
+              className="object-contain drop-shadow-[0_30px_60px_rgba(10,30,50,0.35)]"
+            />
+          </div>
+        </div>
+
+        {/* Title block */}
+        <div
+          data-hero="title"
+          className="absolute z-40 inset-x-0 top-[12%] md:top-[14%] flex flex-col items-center px-6 text-center"
+        >
+          <h1
+            data-hero="headline"
+            className="max-w-4xl font-sans font-semibold tracking-tight text-white text-[clamp(2.4rem,6vw,5rem)] leading-[1.05] [text-shadow:0_2px_24px_rgba(20,40,60,0.35)]"
+          >
+            Find Your Next Frontier
+          </h1>
+          <p
+            data-hero-fade
+            className="mt-5 max-w-xl text-base md:text-lg text-white/90 [text-shadow:0_1px_12px_rgba(20,40,60,0.35)]"
+          >
+            Homes, land, and infrastructure — curated for the way you want to
+            live.
+          </p>
+          <a
+            data-hero-fade
+            href="#why-us"
+            className="mt-8 rounded-full bg-white px-7 py-3 text-sm font-medium text-slate-900 transition-transform duration-700 ease-[cubic-bezier(.16,1,.3,1)] hover:scale-105"
+          >
+            Explore Properties
+          </a>
+        </div>
+
+        {/* Wordmark: drawn SVG + masked SVG stacked for the crossfade moment.
+            Statically only the solid drawn wordmark shows; on desktop the
+            scrub timeline stroke-draws it, fills it, then swaps to the
+            house-image-masked version. */}
+        <div className="pointer-events-none absolute z-50 inset-x-0 top-[46%] md:top-1/2 -translate-y-1/2 px-[6vw]">
+          <div className="relative">
+            <svg
+              data-hero="wordmark-drawn"
+              viewBox={LOGO_VIEWBOX}
+              role="img"
+              aria-label="Frontier Infra"
+              className="w-full text-white [filter:drop-shadow(0_2px_18px_rgba(20,40,60,0.30))]"
+            >
+              {LOGO_PATHS.map(({ letter, d }, i) => (
+                <path
+                  key={`${letter}-${i}`}
+                  className="logo-letter"
+                  d={d}
+                  fill="currentColor"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                />
+              ))}
+            </svg>
+            <svg
+              data-hero="wordmark-masked"
+              viewBox={LOGO_VIEWBOX}
+              aria-hidden
+              className="absolute inset-0 h-full w-full opacity-0 [filter:drop-shadow(0_1px_1px_rgba(10,30,50,0.4))_drop-shadow(0_4px_16px_rgba(10,30,50,0.25))]"
+            >
+              <defs>
+                <clipPath id="hero-wordmark-clip">
+                  {LOGO_PATHS.map(({ letter, d }, i) => (
+                    <path key={`${letter}-${i}`} d={d} />
+                  ))}
+                </clipPath>
+                {/* Punch up the photo inside the letters so the glass band
+                    doesn't wash into the cloud background behind it. */}
+                <filter id="hero-wordmark-tune">
+                  <feColorMatrix type="saturate" values="1.25" />
+                </filter>
+              </defs>
+              {/* Sky fills the letterforms; the house cutout floats over it. */}
+              <g clipPath="url(#hero-wordmark-clip)">
+                <g filter="url(#hero-wordmark-tune)">
+                  <image
+                    href="/assets/hero/sky.webp"
+                    x="0"
+                    y="-333"
+                    width="1115"
+                    height="836"
+                    preserveAspectRatio="xMidYMid slice"
+                  />
+                  {/* 2604x1492 asset -> 1310x751 here; sized so the facade
+                      (~10-95% of the frame) spans the full wordmark width,
+                      and offset so the 170-unit strip frames the roofline +
+                      upper glass band — one horizontal sweep, above the palm
+                      and well clear of the base fade zone. */}
+                  <image
+                    href="/assets/hero/house-cutout.png"
+                    x="-131"
+                    y="-113"
+                    width="1310"
+                    height="751"
+                    preserveAspectRatio="xMidYMid meet"
+                  />
+                </g>
+                {/* Dark scrim: separates the letterforms from the pale
+                    clouds without reading as a flat tint. */}
+                <rect
+                  x="0"
+                  y="0"
+                  width="1115"
+                  height="170"
+                  fill="#0a1e30"
+                  opacity="0.18"
+                />
+              </g>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}

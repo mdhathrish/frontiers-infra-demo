@@ -8,12 +8,12 @@
  * - scrub is RESERVED and must be passed explicitly — the only scrubbed
  *   things are the hero cinematic (0.1), the chevrons row (3), ambient
  *   parallax (1.5, see `parallaxTrigger`), and the footer slide-up (true)
- * - reduced motion: factories have already resolved to instant-set, so no
- *   ScrollTrigger is created at all
+ * - static fallback (reduced motion OR <768px viewport): factories have
+ *   already resolved to instant-set, so no ScrollTrigger is created at all
  */
 import { useRef } from "react";
 import { useGSAP } from "@gsap/react";
-import { gsap, ScrollTrigger, prefersReducedMotion } from "./gsap";
+import { gsap, ScrollTrigger, motionStatic } from "./gsap";
 import type { PresetTimeline } from "./presets";
 
 gsap.registerPlugin(useGSAP);
@@ -37,7 +37,7 @@ export function useReveal<T extends HTMLElement = HTMLDivElement>(
       if (!el) return;
       const tl = build(el);
       if (!tl) return;
-      if (prefersReducedMotion()) {
+      if (motionStatic()) {
         // Factory already instant-set the final state; nothing to trigger.
         return () => tl.cleanup?.();
       }

@@ -7,9 +7,10 @@
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { SplitText } from "gsap/SplitText";
+import { CustomEase } from "gsap/CustomEase";
 
 if (typeof window !== "undefined") {
-  gsap.registerPlugin(ScrollTrigger, SplitText);
+  gsap.registerPlugin(ScrollTrigger, SplitText, CustomEase);
 }
 
 /**
@@ -22,4 +23,21 @@ export function prefersReducedMotion(): boolean {
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }
 
-export { gsap, ScrollTrigger, SplitText };
+/**
+ * Static-fallback guard for the preset factories (project rule: below 768px
+ * sections show static composed fallbacks — no scroll-driven effects).
+ * True when the user prefers reduced motion OR the viewport is <768px; every
+ * preset factory then resolves to an instant-set of its final state and
+ * `useReveal` creates no ScrollTrigger.
+ *
+ * The hero handles its own gating (`mountHero` + gsap.matchMedia) because its
+ * static markup is already the composed end state.
+ */
+export function motionStatic(): boolean {
+  if (typeof window === "undefined") return false;
+  return (
+    prefersReducedMotion() || window.matchMedia("(max-width: 767px)").matches
+  );
+}
+
+export { gsap, ScrollTrigger, SplitText, CustomEase };

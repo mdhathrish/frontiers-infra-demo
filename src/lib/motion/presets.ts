@@ -11,10 +11,11 @@
  *   word sequences >5 words / { amount: 0.15 } for clip & line wipes
  * - hygiene: willChange set before / reset after, clearProps on clip-paths
  *
- * Reduced motion: every factory checks `prefersReducedMotion()` and resolves
- * to an instant-set of the final state (empty timeline, no motion).
+ * Static fallback: every factory checks `motionStatic()` (reduced motion OR
+ * <768px viewport, per the project's mobile rule) and resolves to an
+ * instant-set of the final state (empty timeline, no motion).
  */
-import { gsap, SplitText, prefersReducedMotion } from "./gsap";
+import { gsap, SplitText, motionStatic } from "./gsap";
 
 /** Timeline plus an optional cleanup that reverts DOM mutations (SplitText wrappers, injected overlay divs). `useReveal` calls it on unmount. */
 export type PresetTimeline = gsap.core.Timeline & { cleanup?: () => void };
@@ -42,7 +43,7 @@ export function compose(...presets: PresetTimeline[]): PresetTimeline {
  */
 export function wordMask(target: Element): PresetTimeline {
   const tl = gsap.timeline() as PresetTimeline;
-  if (prefersReducedMotion()) {
+  if (motionStatic()) {
     gsap.set(target, { autoAlpha: 1 });
     return tl;
   }
@@ -88,7 +89,7 @@ export function clipWipe(
   { from = "left" }: { from?: "left" | "right" } = {}
 ): PresetTimeline {
   const tl = gsap.timeline() as PresetTimeline;
-  if (prefersReducedMotion()) {
+  if (motionStatic()) {
     gsap.set(targets, { autoAlpha: 1 });
     return tl;
   }
@@ -119,7 +120,7 @@ export function fadeUp(
 ): PresetTimeline {
   const tl = gsap.timeline() as PresetTimeline;
   const els = gsap.utils.toArray<Element>(targets);
-  if (prefersReducedMotion()) {
+  if (motionStatic()) {
     gsap.set(els, { autoAlpha: 1 });
     return tl;
   }
@@ -164,7 +165,7 @@ export function lineWipe(
 ): PresetTimeline {
   const tl = gsap.timeline() as PresetTimeline;
   gsap.set(target, { autoAlpha: 1 });
-  if (prefersReducedMotion()) return tl;
+  if (motionStatic()) return tl;
   const split = new SplitText(target, { type: "lines" });
   const overlays = split.lines.map((line) => {
     (line as HTMLElement).style.position = "relative";
@@ -227,7 +228,7 @@ export function parallax(
   } = {}
 ): PresetTimeline {
   const tl = gsap.timeline() as PresetTimeline;
-  if (prefersReducedMotion()) return tl;
+  if (motionStatic()) return tl;
   const fromVars: gsap.TweenVars = { y: fromY };
   const toVars: gsap.TweenVars = { y: toY, ease: "none" };
   if (scale) [fromVars.scale, toVars.scale] = scale;
@@ -242,6 +243,59 @@ export const parallaxTrigger = {
   scrub: 1.5,
   start: "top bottom",
   end: "bottom top",
+} as const;
+
+/**
+ * fadeIn — plain opacity entrance (spec §2.1, their `<FadeIn>` wrapper).
+ *
+ * autoAlpha 0 → 1 over 1s, stagger 0.1. Used for low-emphasis items
+ * (menu secondary links, captions).
+ */
+export function fadeIn(
+  targets: gsap.DOMTarget,
+  { duration = 1 }: { duration?: number } = {}
+): PresetTimeline {
+  const tl = gsap.timeline() as PresetTimeline;
+  const els = gsap.utils.toArray<Element>(targets);
+  if (motionStatic()) {
+    gsap.set(els, { autoAlpha: 1 });
+    return tl;
+  }
+  tl.fromTo(
+    els,
+    { autoAlpha: 0 },
+    { autoAlpha: 1, duration, ease: "none", stagger: 0.1 }
+  );
+  return tl;
+}
+
+/**
+ * chevronDrift — the arrows-section row (spec §3.3).
+ *
+ * Every item EXCEPT the first drifts in from x -10% / scale .8 / opacity .1
+ * to identity, stagger 0.2. Scrubbed — pair with `chevronTrigger` (scrub 3,
+ * top bottom → center center) so the chevrons settle by mid-viewport.
+ * Ease none: the scrub supplies the feel.
+ */
+export function chevronDrift(targets: gsap.DOMTarget): PresetTimeline {
+  const tl = gsap.timeline() as PresetTimeline;
+  const els = gsap.utils.toArray<Element>(targets);
+  // Static fallback: items ship visible in markup — nothing to do.
+  if (motionStatic() || els.length < 2) return tl;
+  gsap.set(els, { willChange: "transform" });
+  tl.fromTo(
+    els.slice(1),
+    { xPercent: -10, scale: 0.8, opacity: 0.1 },
+    { xPercent: 0, scale: 1, opacity: 1, ease: "none", stagger: 0.2 }
+  );
+  return tl;
+}
+
+/** Spec §3.3 trigger for chevronDrift: very loose scrub, settled by mid-viewport. */
+export const chevronTrigger = {
+  scrub: 3,
+  start: "top bottom",
+  end: "center center",
 } as const;
 
 /**
@@ -269,7 +323,7 @@ export function counter(
     });
   const tl = gsap.timeline() as PresetTimeline;
   gsap.set(el, { autoAlpha: 1 });
-  if (prefersReducedMotion()) {
+  if (motionStatic()) {
     el.innerText = format(to);
     return tl;
   }

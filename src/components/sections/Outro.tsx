@@ -6,7 +6,11 @@
  * - background video: parallax zoom `scale 1 → 1.1` (scrub 1.5) + clipWipe
  *   on the media frame on entry, once — same outer/inner split as
  *   WhyUs/Steps (outer = clip, inner = zoom)
- * - headline: lineWipe, white tint (per spec table verbatim) + CTA fadeUp
+ * - headline: lineWipe, dark tint — the spec table says white, but the
+ *   overlay must match what's behind the text (spec §2.1: "`color` MUST
+ *   match the section background"); here that's a dark video under a
+ *   black/45 scrim, and the white tint rendered as white boxes over the
+ *   footage mid-wipe (caught in the integration QA pass) + CTA fadeUp
  *
  * Imagery per ASSETS.md — the outro background video.
  */
@@ -20,7 +24,8 @@ import {
   parallaxTrigger,
 } from "@/lib/motion";
 
-const WHITE_TINT = "rgba(255,255,255,0.8)";
+/** Matches the video's black/45 scrim, not the section token — see header note. */
+const SCRIM_TINT = "rgba(21,23,23,0.8)";
 const HOVER_EASE = "ease-[cubic-bezier(.16,1,.3,1)]";
 
 export default function Outro() {
@@ -30,7 +35,7 @@ export default function Outro() {
     parallaxTrigger
   );
   const copyRef = useReveal<HTMLDivElement>(
-    (el) => lineWipe(el, { color: WHITE_TINT }),
+    (el) => lineWipe(el, { color: SCRIM_TINT }),
     lineWipeTrigger
   );
   const ctaRef = useReveal<HTMLDivElement>((el) =>

@@ -10,6 +10,18 @@
  *   parallax (1.5, see `parallaxTrigger`), and the footer slide-up (true)
  * - static fallback (reduced motion OR <768px viewport): factories have
  *   already resolved to instant-set, so no ScrollTrigger is created at all
+ *
+ * Perf (integration QA pass): once-reveals build their preset LAZILY, inside
+ * the trigger's `onEnter`, rather than at mount. Building eagerly meant every
+ * section ran `new SplitText()` (a forced synchronous reflow) during the first
+ * frames — ~10 sections' worth of layout thrash landed in one long task and
+ * dominated Total Blocking Time. Deferring the build means an off-screen
+ * section does no layout work until it's actually approached, and each split
+ * now measures already-loaded fonts. Scrubbed reveals still build at mount
+ * (the scrub needs the timeline up front, and none of them use SplitText), and
+ * the static fallback still builds at mount so its instant-set runs immediately.
+ * A timeline built inside `onEnter` is created after useGSAP's context has
+ * captured its synchronous work, so it is cleaned up explicitly here.
  */
 import { useRef } from "react";
 import { useGSAP } from "@gsap/react";
@@ -35,21 +47,44 @@ export function useReveal<T extends HTMLElement = HTMLDivElement>(
     () => {
       const el = ref.current;
       if (!el) return;
-      const tl = build(el);
-      if (!tl) return;
+
       if (motionStatic()) {
-        // Factory already instant-set the final state; nothing to trigger.
+        // Factory instant-sets the final state at mount; nothing to trigger.
+        const tl = build(el);
+        return () => tl?.cleanup?.();
+      }
+
+      const { scrub, start, end } = options;
+
+      // Scrubbed reveals need their timeline attached up front for the scrub to
+      // drive — build eagerly (none of these use SplitText, so it's cheap).
+      if (scrub != null) {
+        const tl = build(el);
+        if (!tl) return;
+        ScrollTrigger.create({
+          trigger: el,
+          animation: tl,
+          start: start ?? "top bottom",
+          end: end ?? "bottom top",
+          scrub,
+        });
         return () => tl.cleanup?.();
       }
-      const { scrub, start, end } = options;
+
+      // Once-reveals: defer the (SplitText-heavy) build to onEnter so nothing
+      // off-screen does layout work at mount. The timeline auto-plays on
+      // creation; `once` disables the trigger after it fires.
+      let tl: PresetTimeline | void;
       ScrollTrigger.create({
         trigger: el,
-        animation: tl,
-        start: start ?? (scrub != null ? "top bottom" : "top bottom-=200px"),
-        end: end ?? (scrub != null ? "bottom top" : undefined),
-        ...(scrub != null ? { scrub } : { once: true }),
+        start: start ?? "top bottom-=200px",
+        end,
+        once: true,
+        onEnter: () => {
+          tl = build(el);
+        },
       });
-      return () => tl.cleanup?.();
+      return () => tl?.cleanup?.();
     },
     { scope: ref }
   );

@@ -197,7 +197,27 @@ export function lineWipe(
   const tl = gsap.timeline() as PresetTimeline;
   gsap.set(target, { autoAlpha: 1 });
   if (motionStatic()) return tl;
-  const split = new SplitText(target, { type: "lines" });
+  // aria: "none" — the lineWipe target is a roleless wrapper div holding the
+  // real h2/p. SplitText's default ("auto") moves an aria-label onto that div
+  // (prohibited on a div with no role) and aria-hides the heading clones,
+  // erasing every <h2> from the accessibility tree (a11y QA pass caught the
+  // resulting H1→H3 heading-order skip + aria-prohibited-attr). "none" leaves
+  // the cloned headings readable at their real level; the wordMask preset
+  // keeps "auto" because its targets are already headings (h1/h3).
+  const split = new SplitText(target, { type: "lines", aria: "none" });
+  // SplitText 3.13 clones nested block elements (h2/p) once per visual line,
+  // and every clone keeps its source's classes — including `mt-*` utilities —
+  // so each continuation line would re-add its block's top margin and
+  // permanently inflate the leading (and shift layout at mount). Zero the
+  // margin on lines that continue the same source block (same tag + class
+  // as the line before); each block's first line keeps its real margin.
+  let prevKey: string | null = null;
+  split.lines.forEach((line) => {
+    const block = line.firstElementChild as HTMLElement | null;
+    const key = block ? `${block.tagName}#${block.className}` : null;
+    if (block && key !== null && key === prevKey) block.style.marginTop = "0";
+    prevKey = key;
+  });
   const overlays = split.lines.map((line) => {
     (line as HTMLElement).style.position = "relative";
     const overlay = document.createElement("div");

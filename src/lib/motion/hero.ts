@@ -244,34 +244,73 @@ export function mountHero(section: HTMLElement): (() => void) | void {
     return () => cleanups.forEach((fn) => fn());
   });
 
-  // Below 768px the desktop cinematic never mounts — the mobile composition in
-  // Hero.tsx IS the hero. Its only motion is this ambient cloud drift; each
-  // puff loops a slow sine yoyo, phase-offset so they're mid-drift from the
-  // first frame. Reduced motion never reaches here (guarded at the top).
+  // Below 768px: the mobile composition in Hero.tsx IS the hero. Motion-safe
+  // phones get their own scroll cinematic — the section grows to 260vh and the
+  // stage goes sticky (motion-safe: Tailwind variants), so scrolling drives a
+  // scrub that mirrors the desktop beats: sky zooms, the house lifts off and
+  // dissolves, the grounding bank parts. Plus the ambient puff drift, which
+  // also carries the reduced-motion case (there the section stays one screen
+  // and the scrub layers below simply aren't queried differently — but reduced
+  // motion never reaches here anyway, guarded at the top).
   mm.add("(max-width: 767px)", () => {
+    const cleanups: (() => void)[] = [];
+
+    // Ambient drift: each puff loops a slow sine yoyo, phase-offset so they're
+    // mid-drift from the first frame.
     const puffs = Array.from(
       section.querySelectorAll<HTMLElement>("[data-hero-mcloud]")
     );
-    if (!puffs.length) return;
-    gsap.set(puffs, { willChange: "transform" });
-    const tweens = puffs.map((puff, i) => {
-      const d = MOBILE_DRIFT[i % MOBILE_DRIFT.length];
-      return gsap
-        .fromTo(
-          puff,
-          { xPercent: -d.xPercent, yPercent: -d.yPercent },
-          {
-            xPercent: d.xPercent,
-            yPercent: d.yPercent,
-            duration: d.duration,
-            ease: "sine.inOut",
-            yoyo: true,
-            repeat: -1,
-          }
-        )
-        .progress(i * 0.3);
-    });
-    return () => tweens.forEach((t) => t.kill());
+    if (puffs.length) {
+      gsap.set(puffs, { willChange: "transform" });
+      puffs.forEach((puff, i) => {
+        const d = MOBILE_DRIFT[i % MOBILE_DRIFT.length];
+        const t = gsap
+          .fromTo(
+            puff,
+            { xPercent: -d.xPercent, yPercent: -d.yPercent },
+            {
+              xPercent: d.xPercent,
+              yPercent: d.yPercent,
+              duration: d.duration,
+              ease: "sine.inOut",
+              yoyo: true,
+              repeat: -1,
+            }
+          )
+          .progress(i * 0.3);
+        cleanups.push(() => t.kill());
+      });
+    }
+
+    // Scroll cinematic — same tight scrub + range as desktop. The grounding
+    // pair is static markup (no ambient loop), so the scrub owns its transform
+    // outright; no outer/inner split needed here.
+    const msky = section.querySelector<HTMLElement>("[data-hero-msky]");
+    const mhouse = section.querySelector<HTMLElement>("[data-hero-mhouse]");
+    const mground = Array.from(
+      section.querySelectorAll<HTMLElement>("[data-hero-mground]")
+    );
+    if (msky && mhouse && mground.length === 2) {
+      gsap.set([msky, mhouse, ...mground], { willChange: "transform" });
+      const scrub = gsap.timeline({
+        defaults: { ease: "none" },
+        scrollTrigger: { trigger: section, ...HERO_SCRUB_TRIGGER },
+      });
+      scrub
+        .to(msky, { scale: 1.12, duration: 1 }, 0)
+        .to(mhouse, { yPercent: -75, scale: 1.22, duration: 1 }, 0)
+        // House dissolves into the sky over the back half of the lift.
+        .to(mhouse, { autoAlpha: 0, duration: 0.35 }, 0.5)
+        // Bank parts left/right as the house clears it.
+        .to(mground[0], { xPercent: -28, yPercent: 10, duration: 1 }, 0)
+        .to(mground[1], { xPercent: 30, yPercent: 8, duration: 1 }, 0);
+      cleanups.push(() => {
+        scrub.scrollTrigger?.kill();
+        scrub.kill();
+      });
+    }
+
+    return () => cleanups.forEach((fn) => fn());
   });
 
   return () => mm.revert();

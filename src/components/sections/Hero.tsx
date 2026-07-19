@@ -31,19 +31,23 @@ const CLOUD_MASK =
 
 const CLOUDS: { name: string; className: string; pos: string }[] = [
   {
+    // Front-left bank, raised and widened so it laps over the house base and
+    // overlaps cloud-r across the centre (was leaving the mid-base exposed).
     name: "cloud-l",
-    className: "left-[-18%] bottom-[-8%] w-[74vw] h-[52vh] z-30",
-    pos: "22% 74%",
+    className: "left-[-16%] bottom-[-2%] w-[90vw] h-[62vh] z-30",
+    pos: "28% 72%",
   },
   {
+    // Behind the house (z-10): backfill so no sky shows through the parted gap.
     name: "cloud-m",
-    className: "left-[16%] bottom-[-18%] w-[64vw] h-[38vh] z-10",
-    pos: "55% 66%",
+    className: "left-[8%] bottom-[-10%] w-[78vw] h-[48vh] z-10",
+    pos: "52% 68%",
   },
   {
+    // Front-right bank, mirror of cloud-l.
     name: "cloud-r",
-    className: "right-[-20%] bottom-[-10%] w-[80vw] h-[56vh] z-30",
-    pos: "82% 72%",
+    className: "right-[-16%] bottom-[-2%] w-[94vw] h-[64vh] z-30",
+    pos: "72% 72%",
   },
 ];
 
@@ -107,24 +111,32 @@ export default function Hero() {
       id="hero"
       ref={sectionRef}
       aria-label="Frontier Infra — find your next frontier"
-      className="relative h-svh md:h-[3600px] bg-[#7db3d6]"
+      className="relative h-svh max-md:motion-safe:h-[260vh] md:h-[3600px] bg-[#7db3d6]"
     >
       {/* ── Mobile composition (<768px) ──────────────────────────────────
           Art-directed portrait stack — NOT the desktop composite with its
           motion switched off. Sky + drifting cloud puffs behind a house that
           rests in the cloud band, with the wordmark sized to the viewport
-          width and the tagline / subcopy / CTA stacked beneath it. The only
-          motion here is the ambient cloud drift (mountHero mobile matchMedia,
-          transform-only), so it degrades cleanly under reduced motion. */}
-      <div className="md:hidden relative h-svh w-full overflow-hidden">
-        <Image
-          src="/assets/hero/sky.webp"
-          alt=""
-          fill
-          priority
-          sizes="100vw"
-          className="object-cover object-[50%_30%]"
-        />
+          width and the tagline / subcopy / CTA stacked beneath it.
+
+          Motion-safe phones get their own scroll cinematic (mountHero mobile
+          matchMedia): the section grows to 260vh and this stage goes sticky,
+          so scrolling lifts the house off, zooms the sky, and parts the
+          grounding bank — the mobile counterpart to the desktop scrub. Under
+          reduced motion the tall height + sticky both drop out (motion-safe:
+          variants), leaving the static one-screen composite with ambient drift
+          only, so it degrades cleanly. */}
+      <div className="md:hidden relative motion-safe:sticky motion-safe:top-0 h-svh w-full overflow-hidden">
+        <div data-hero-msky className="absolute inset-0">
+          <Image
+            src="/assets/hero/sky.webp"
+            alt=""
+            fill
+            priority
+            sizes="100vw"
+            className="object-cover object-[50%_30%]"
+          />
+        </div>
 
         {/* Ambient drifting puffs in the open sky above the house. */}
         {MOBILE_CLOUDS.map(({ className, pos }, i) => (
@@ -141,7 +153,10 @@ export default function Hero() {
             rises out of the grounding bank below rather than floating mid-sky.
             No drop shadow: the cloud bank, not a cast shadow, gives it depth. */}
         <div className="absolute inset-x-0 top-0 z-20 flex h-[56%] items-end justify-center">
-          <div className="relative w-[92vw] max-w-[440px] aspect-[2604/1492]">
+          <div
+            data-hero-mhouse
+            className="relative w-[92vw] max-w-[440px] aspect-[2604/1492]"
+          >
             <Image
               src="/assets/hero/house-cutout.png"
               alt=""
@@ -155,10 +170,12 @@ export default function Hero() {
 
         {/* Grounding cloud bank — sits AT the house base (z-30, above the
             house's z-20), swallowing the cutout's hard edge so it reads as
-            emerging from cloud. */}
+            emerging from cloud. On motion-safe scroll the pair parts (index 0
+            left, 1 right) as the house lifts off. */}
         {GROUND_CLOUDS.map(({ className, pos }, i) => (
           <div
             key={i}
+            data-hero-mground
             aria-hidden
             className={`absolute z-30 ${className}`}
             style={bandStyle(pos)}

@@ -7,9 +7,12 @@
  *   enters the viewport (`top bottom-=200px`) so content animates in early
  * - scrub is RESERVED and must be passed explicitly — the only scrubbed
  *   things are the hero cinematic (0.1), the chevrons row (3), ambient
- *   parallax (1.5, see `parallaxTrigger`), and the footer slide-up (true)
- * - static fallback (reduced motion OR <768px viewport): factories have
- *   already resolved to instant-set, so no ScrollTrigger is created at all
+ *   parallax (1.5, see `parallaxTrigger`), and the footer slide-up (true).
+ *   Scrub is desktop-only: <768px falls through to a once-trigger (spec §5)
+ * - reduced motion: factories instant-set their final state at mount, so no
+ *   ScrollTrigger is created at all
+ * - mobile (<768px, motion allowed): content presets degrade to a simple
+ *   fadeUp (see `mobileFadeUp`) driven by the same once-trigger as desktop
  *
  * Perf (integration QA pass): once-reveals build their preset LAZILY, inside
  * the trigger's `onEnter`, rather than at mount. Building eagerly meant every
@@ -25,7 +28,12 @@
  */
 import { useRef } from "react";
 import { useGSAP } from "@gsap/react";
-import { gsap, ScrollTrigger, motionStatic } from "./gsap";
+import {
+  gsap,
+  ScrollTrigger,
+  prefersReducedMotion,
+  isMobileViewport,
+} from "./gsap";
 import type { PresetTimeline } from "./presets";
 
 gsap.registerPlugin(useGSAP);
@@ -48,7 +56,7 @@ export function useReveal<T extends HTMLElement = HTMLDivElement>(
       const el = ref.current;
       if (!el) return;
 
-      if (motionStatic()) {
+      if (prefersReducedMotion()) {
         // Factory instant-sets the final state at mount; nothing to trigger.
         const tl = build(el);
         return () => tl?.cleanup?.();
@@ -58,7 +66,11 @@ export function useReveal<T extends HTMLElement = HTMLDivElement>(
 
       // Scrubbed reveals need their timeline attached up front for the scrub to
       // drive — build eagerly (none of these use SplitText, so it's cheap).
-      if (scrub != null) {
+      // On mobile we never scrub (spec §5 / CLAUDE.md): the scrub presets
+      // resolve to their static state in the factory, and the reveal falls
+      // through to the once-trigger below (a no-op for them, a fadeUp for the
+      // content presets), so mobile content still animates in on entry.
+      if (scrub != null && !isMobileViewport()) {
         const tl = build(el);
         if (!tl) return;
         ScrollTrigger.create({

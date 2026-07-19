@@ -88,10 +88,13 @@ export default function Testimonials() {
           />
         </div>
 
-        <div ref={cardsRef} className="flex flex-col">
+        {/* min-w-0: without it this grid/flex column refuses to shrink below
+            its horizontal-scroll content, stretching the whole page (and the
+            sibling photo) wider than the viewport on mobile. */}
+        <div ref={cardsRef} className="flex min-w-0 flex-col">
           <div
             ref={trackRef}
-            className="flex snap-x snap-mandatory gap-6 overflow-x-auto scroll-smooth pb-4 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            className="flex min-w-0 snap-x snap-mandatory gap-6 overflow-x-auto scroll-smooth pb-4 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           >
             {QUOTES.map(({ quote, name, role }) => (
               <div

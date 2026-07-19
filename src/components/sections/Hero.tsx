@@ -56,6 +56,16 @@ const cloudStyle = (pos: string): CSSProperties => ({
   filter: "blur(10px) brightness(1.07)",
 });
 
+/** Mobile-only cloud puffs (§ mobile pass): a few soft masked copies of the
+    sky that ride the ambient drift loop in `mountHero`'s mobile matchMedia —
+    transform-only, no scroll coupling, so the static composed hero still has
+    one cheap sign of life on phones. */
+const MOBILE_CLOUDS: { className: string; pos: string }[] = [
+  { className: "left-[-14%] top-[40%] h-[34vh] w-[78vw]", pos: "24% 70%" },
+  { className: "right-[-18%] top-[52%] h-[30vh] w-[72vw]", pos: "80% 72%" },
+  { className: "left-[8%] top-[14%] h-[22vh] w-[56vw]", pos: "52% 40%" },
+];
+
 export default function Hero() {
   const sectionRef = useRef<HTMLElement>(null);
 
@@ -74,8 +84,81 @@ export default function Hero() {
       aria-label="Frontier Infra — find your next frontier"
       className="relative h-svh md:h-[3600px] bg-[#7db3d6]"
     >
-      {/* Full-viewport stage: sticky replicates the reference's fixed composite. */}
-      <div className="relative md:sticky md:top-0 h-svh md:h-screen overflow-hidden">
+      {/* ── Mobile composition (<768px) ──────────────────────────────────
+          Art-directed portrait stack — NOT the desktop composite with its
+          motion switched off. Sky + drifting cloud puffs behind a house that
+          rests in the cloud band, with the wordmark sized to the viewport
+          width and the tagline / subcopy / CTA stacked beneath it. The only
+          motion here is the ambient cloud drift (mountHero mobile matchMedia,
+          transform-only), so it degrades cleanly under reduced motion. */}
+      <div className="md:hidden relative h-svh w-full overflow-hidden">
+        <Image
+          src="/assets/hero/sky.webp"
+          alt=""
+          fill
+          priority
+          sizes="100vw"
+          className="object-cover object-[50%_35%]"
+        />
+
+        {MOBILE_CLOUDS.map(({ className, pos }, i) => (
+          <div
+            key={i}
+            data-hero-mcloud
+            aria-hidden
+            className={`absolute ${className}`}
+            style={cloudStyle(pos)}
+          />
+        ))}
+
+        {/* House rests in the cloud band, upper-middle. */}
+        <div className="absolute inset-x-0 top-[16%] z-20 flex justify-center">
+          <div className="relative w-[74vw] max-w-[380px] aspect-[2604/1492]">
+            <Image
+              src="/assets/hero/house-cutout.png"
+              alt=""
+              fill
+              priority
+              sizes="74vw"
+              className="object-contain drop-shadow-[0_20px_44px_rgba(10,30,50,0.35)]"
+            />
+          </div>
+        </div>
+
+        {/* Bottom-anchored brand lockup: wordmark (fit width) → tagline →
+            subcopy → CTA. */}
+        <div className="absolute inset-x-0 bottom-0 z-40 flex flex-col items-center gap-4 px-6 pb-[max(2.5rem,env(safe-area-inset-bottom))] text-center">
+          <svg
+            viewBox={LOGO_VIEWBOX}
+            role="img"
+            aria-label="Frontier Infra"
+            className="w-[84vw] max-w-[440px] text-white [filter:drop-shadow(0_2px_16px_rgba(20,40,60,0.35))]"
+          >
+            {LOGO_PATHS.map(({ letter, d }, i) => (
+              <path key={`${letter}-${i}`} d={d} fill="currentColor" />
+            ))}
+          </svg>
+          <h1 className="text-lg font-medium tracking-tight text-white [text-shadow:0_1px_12px_rgba(20,40,60,0.4)]">
+            Find Your Next Frontier
+          </h1>
+          <p className="max-w-xs text-sm leading-relaxed text-white/90 [text-shadow:0_1px_10px_rgba(20,40,60,0.4)]">
+            Homes, land, and infrastructure — curated for the way you want to
+            live.
+          </p>
+          <a
+            href="#why-us"
+            className="mt-1 rounded-full bg-white px-7 py-3 text-sm font-medium text-slate-900 shadow-[0_6px_24px_rgba(10,30,50,0.25)]"
+          >
+            Explore Properties
+          </a>
+        </div>
+      </div>
+
+      {/* ── Desktop cinematic (≥768px) ───────────────────────────────────
+          Full-viewport stage: sticky replicates the reference's fixed
+          composite. Hidden below md, where the mobile composition above
+          stands in. */}
+      <div className="hidden md:block relative md:sticky md:top-0 h-svh md:h-screen overflow-hidden">
         {/* Sky (outer = scrub zoom, inner = intro settle) */}
         <div data-hero="sky" className="absolute inset-0">
           <div data-hero="sky-inner" className="absolute inset-0">

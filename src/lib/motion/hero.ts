@@ -68,6 +68,16 @@ const AMBIENT_DRIFT = [
   { xPercent: -8, yPercent: -2, duration: 19 }, // cloud-r
 ] as const;
 
+/** Mobile pass: the one cheap ambient touch that works on phones — the same
+ *  slow sine drift applied to the mobile hero's cloud puffs. Transform-only,
+ *  no scroll coupling; skipped entirely under reduced motion (mountHero bails
+ *  before any matchMedia runs). */
+const MOBILE_DRIFT = [
+  { xPercent: 6, yPercent: -3, duration: 14 },
+  { xPercent: -7, yPercent: 3, duration: 18 },
+  { xPercent: 5, yPercent: -2, duration: 22 },
+] as const;
+
 export function mountHero(section: HTMLElement): (() => void) | void {
   // Reduced motion: leave the static composed markup untouched.
   if (prefersReducedMotion()) return;
@@ -232,6 +242,36 @@ export function mountHero(section: HTMLElement): (() => void) | void {
       .to(house, { autoAlpha: 0, duration: 0.18 }, 0.54);
 
     return () => cleanups.forEach((fn) => fn());
+  });
+
+  // Below 768px the desktop cinematic never mounts — the mobile composition in
+  // Hero.tsx IS the hero. Its only motion is this ambient cloud drift; each
+  // puff loops a slow sine yoyo, phase-offset so they're mid-drift from the
+  // first frame. Reduced motion never reaches here (guarded at the top).
+  mm.add("(max-width: 767px)", () => {
+    const puffs = Array.from(
+      section.querySelectorAll<HTMLElement>("[data-hero-mcloud]")
+    );
+    if (!puffs.length) return;
+    gsap.set(puffs, { willChange: "transform" });
+    const tweens = puffs.map((puff, i) => {
+      const d = MOBILE_DRIFT[i % MOBILE_DRIFT.length];
+      return gsap
+        .fromTo(
+          puff,
+          { xPercent: -d.xPercent, yPercent: -d.yPercent },
+          {
+            xPercent: d.xPercent,
+            yPercent: d.yPercent,
+            duration: d.duration,
+            ease: "sine.inOut",
+            yoyo: true,
+            repeat: -1,
+          }
+        )
+        .progress(i * 0.3);
+    });
+    return () => tweens.forEach((t) => t.kill());
   });
 
   return () => mm.revert();

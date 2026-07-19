@@ -30,24 +30,31 @@ const HOVER_EASE = "ease-[cubic-bezier(.16,1,.3,1)]";
 const CHEVRON_CLIP =
   "polygon(0% 0%, 78% 0%, 100% 50%, 78% 100%, 0% 100%, 22% 50%)";
 
+// `crop`: the narrow portrait chevrons on mobile lose the subject at the
+// default centered crop, so each carries a mobile object-position that keeps
+// its building/land in frame; md+ reverts to centered where the wider chevron
+// shows the full composition.
 const CHEVRONS = [
   {
     src: "/assets/sections/pexels-abid-ali-10647324.webp",
     alt: "Modern residence with a pool",
     place: "Kokapet",
     kind: "Signature residences",
+    crop: "object-[38%_50%] md:object-center",
   },
   {
     src: "/assets/sections/pexels-min-an-740587.webp",
     alt: "Low-rise buildings among green trees",
     place: "Tellapur",
     kind: "Curated land parcels",
+    crop: "object-[50%_72%] md:object-center",
   },
   {
     src: "/assets/sections/pexels-derwin-edwards-10854904.webp",
     alt: "Aerial view of houses and trees",
     place: "ORR West",
     kind: "Growth-corridor infrastructure",
+    crop: "object-[58%_50%] md:object-center",
   },
 ];
 
@@ -91,11 +98,11 @@ export default function Chevrons() {
         ref={rowRef}
         className="mt-16 flex items-stretch px-6 md:mt-24 md:px-10"
       >
-        {CHEVRONS.map(({ src, alt }, i) => (
+        {CHEVRONS.map(({ src, alt, crop }, i) => (
           <div
             key={src}
             data-chevron
-            className={`group relative h-[220px] flex-1 overflow-hidden md:h-[420px] ${
+            className={`group relative h-[260px] flex-1 overflow-hidden md:h-[420px] ${
               i > 0 ? "-ml-[10%]" : ""
             }`}
             style={{ clipPath: CHEVRON_CLIP }}
@@ -104,8 +111,8 @@ export default function Chevrons() {
               src={src}
               alt={alt}
               fill
-              sizes="(min-width: 768px) 38vw, 45vw"
-              className={`object-cover transition-transform duration-[4000ms] ${HOVER_EASE} group-hover:scale-105`}
+              sizes="(min-width: 768px) 38vw, 33vw"
+              className={`object-cover ${crop} transition-transform duration-[4000ms] ${HOVER_EASE} group-hover:scale-105`}
             />
           </div>
         ))}

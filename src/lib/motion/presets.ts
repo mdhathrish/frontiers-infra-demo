@@ -23,12 +23,52 @@
  * <768px viewport, per the project's mobile rule) and resolves to an
  * instant-set of the final state (empty timeline, no motion).
  */
-import { gsap, SplitText, motionStatic } from "./gsap";
+import {
+  gsap,
+  SplitText,
+  motionStatic,
+  prefersReducedMotion,
+  mobileMotion,
+} from "./gsap";
 
 /** Timeline plus an optional cleanup that reverts DOM mutations (SplitText wrappers, injected overlay divs). `useReveal` calls it on unmount. */
 export type PresetTimeline = gsap.core.Timeline & { cleanup?: () => void };
 
 const REVEAL_DURATION = 3.6;
+
+/** Mobile-pass duration for the simple fadeUp every content preset degrades to
+ *  below 768px — short and buttery, no SplitText, no clip-path (spec §5 /
+ *  CLAUDE.md: "simple fadeUp once-triggers … no scrub, no pinning"). */
+const MOBILE_REVEAL_DURATION = 0.9;
+
+/**
+ * The single reveal every content preset (word/line/clip/fade) collapses to on
+ * a <768px viewport: targets rise `y 20 → 0` while fading in, once. No layout-
+ * thrashing SplitText, no clip-path — cheap enough for low-end phones and
+ * identical across sections so mobile reads as one system, not a downscaled
+ * desktop. Reduced-motion users never reach here (they instant-set instead).
+ */
+function mobileFadeUp(targets: gsap.DOMTarget): PresetTimeline {
+  const tl = gsap.timeline() as PresetTimeline;
+  const els = gsap.utils.toArray<Element>(targets);
+  if (!els.length) return tl;
+  gsap.set(els, { willChange: "transform" });
+  tl.fromTo(
+    els,
+    { y: 20, autoAlpha: 0 },
+    {
+      y: 0,
+      autoAlpha: 1,
+      duration: MOBILE_REVEAL_DURATION,
+      ease: "power2.out",
+      stagger: 0.1,
+    }
+  );
+  tl.eventCallback("onComplete", () => {
+    gsap.set(els, { willChange: "auto" });
+  });
+  return tl;
+}
 
 /** Merge several presets into one timeline (all starting at 0), preserving their cleanups. */
 export function compose(...presets: PresetTimeline[]): PresetTimeline {
@@ -62,10 +102,11 @@ export function wordMask(
   } = {}
 ): PresetTimeline {
   const tl = gsap.timeline() as PresetTimeline;
-  if (motionStatic()) {
+  if (prefersReducedMotion()) {
     gsap.set(target, { autoAlpha: 1 });
     return tl;
   }
+  if (mobileMotion()) return mobileFadeUp(target);
   const masks = new SplitText(target, { type: "words" });
   const words = new SplitText(target, { type: "words" });
   gsap.set(masks.words, {
@@ -108,10 +149,11 @@ export function clipWipe(
   { from = "left" }: { from?: "left" | "right" } = {}
 ): PresetTimeline {
   const tl = gsap.timeline() as PresetTimeline;
-  if (motionStatic()) {
+  if (prefersReducedMotion()) {
     gsap.set(targets, { autoAlpha: 1 });
     return tl;
   }
+  if (mobileMotion()) return mobileFadeUp(targets);
   gsap.set(targets, { autoAlpha: 1 });
   tl.fromTo(
     targets,
@@ -151,10 +193,11 @@ export function fadeUp(
 ): PresetTimeline {
   const tl = gsap.timeline() as PresetTimeline;
   const els = gsap.utils.toArray<Element>(targets);
-  if (motionStatic()) {
+  if (prefersReducedMotion()) {
     gsap.set(els, { autoAlpha: 1 });
     return tl;
   }
+  if (mobileMotion()) return mobileFadeUp(els);
   gsap.set(els, { willChange: "transform" });
   tl.fromTo(
     els,
@@ -195,8 +238,12 @@ export function lineWipe(
   { color = "rgba(255,255,255,0.8)" }: { color?: string } = {}
 ): PresetTimeline {
   const tl = gsap.timeline() as PresetTimeline;
+  if (prefersReducedMotion()) {
+    gsap.set(target, { autoAlpha: 1 });
+    return tl;
+  }
+  if (mobileMotion()) return mobileFadeUp(target);
   gsap.set(target, { autoAlpha: 1 });
-  if (motionStatic()) return tl;
   // aria: "none" — the lineWipe target is a roleless wrapper div holding the
   // real h2/p. SplitText's default ("auto") moves an aria-label onto that div
   // (prohibited on a div with no role) and aria-hides the heading clones,
@@ -308,8 +355,16 @@ export function fadeIn(
 ): PresetTimeline {
   const tl = gsap.timeline() as PresetTimeline;
   const els = gsap.utils.toArray<Element>(targets);
-  if (motionStatic()) {
+  if (prefersReducedMotion()) {
     gsap.set(els, { autoAlpha: 1 });
+    return tl;
+  }
+  if (mobileMotion()) {
+    tl.fromTo(
+      els,
+      { autoAlpha: 0 },
+      { autoAlpha: 1, duration: 0.6, ease: "none", stagger: 0.08 }
+    );
     return tl;
   }
   tl.fromTo(
@@ -396,8 +451,23 @@ export const footerRevealTrigger = {
 export function footerLogoReveal(targets: gsap.DOMTarget): PresetTimeline {
   const tl = gsap.timeline() as PresetTimeline;
   const els = gsap.utils.toArray<Element>(targets);
-  if (motionStatic()) {
+  if (prefersReducedMotion()) {
     gsap.set(els, { autoAlpha: 1 });
+    return tl;
+  }
+  if (mobileMotion()) {
+    // SVG <path>s: fade only, no y-transform (px transforms on paths read as a
+    // jitter against the user-unit viewBox). Right-to-left order preserved.
+    tl.fromTo(
+      els,
+      { autoAlpha: 0 },
+      {
+        autoAlpha: 1,
+        duration: 0.8,
+        ease: "power2.out",
+        stagger: { each: 0.05, from: "end" },
+      }
+    );
     return tl;
   }
   gsap.set(els, { willChange: "transform" });
@@ -443,7 +513,9 @@ export function counter(
     });
   const tl = gsap.timeline() as PresetTimeline;
   gsap.set(el, { autoAlpha: 1 });
-  if (motionStatic()) {
+  // Counters count up on mobile too — cheap, and a nice sign of life. Only
+  // reduced motion skips straight to the final value.
+  if (prefersReducedMotion()) {
     el.innerText = format(to);
     return tl;
   }

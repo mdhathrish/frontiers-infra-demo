@@ -79,9 +79,12 @@ function ServiceRow({
       }`}
     >
       <div ref={rowRef}>
+        {/* Below md, size to the viewport width so the longest word
+            ("INFRASTRUCTURE") never clips the edge; the desktop clamp only
+            takes over at md+ where there's room for the big display size. */}
         <h3
           data-word
-          className="invisible text-[clamp(3rem,9vw,7rem)] font-semibold uppercase leading-[0.95] tracking-tight"
+          className="invisible text-[8.5vw] md:text-[clamp(3rem,9vw,7rem)] font-semibold uppercase leading-[0.95] tracking-tight"
         >
           {word}
         </h3>

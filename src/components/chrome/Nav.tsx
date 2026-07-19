@@ -190,7 +190,10 @@ export default function Nav() {
           data-menu="content"
           className="relative flex h-full flex-col justify-between px-6 pt-28 pb-10 text-white md:px-10 md:pt-36 md:pb-14"
         >
-          <nav className="flex flex-col gap-1 md:gap-2" aria-label="Menu">
+          <nav
+            className="flex flex-1 flex-col justify-center gap-1 md:flex-none md:justify-start md:gap-2"
+            aria-label="Menu"
+          >
             {MENU_LINKS.map(({ label, href }) => (
               <a
                 key={label}

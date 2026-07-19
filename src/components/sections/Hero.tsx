@@ -56,15 +56,40 @@ const cloudStyle = (pos: string): CSSProperties => ({
   filter: "blur(10px) brightness(1.07)",
 });
 
-/** Mobile-only cloud puffs (§ mobile pass): a few soft masked copies of the
-    sky that ride the ambient drift loop in `mountHero`'s mobile matchMedia —
+/** Mobile ambient puffs (§ mobile pass): a few soft masked copies of the sky
+    that ride the ambient drift loop in `mountHero`'s mobile matchMedia —
     transform-only, no scroll coupling, so the static composed hero still has
-    one cheap sign of life on phones. */
+    one cheap sign of life on phones. Kept in the OPEN SKY above the house so
+    the drift never uncovers its grounded base. */
 const MOBILE_CLOUDS: { className: string; pos: string }[] = [
-  { className: "left-[-14%] top-[40%] h-[34vh] w-[78vw]", pos: "24% 70%" },
-  { className: "right-[-18%] top-[52%] h-[30vh] w-[72vw]", pos: "80% 72%" },
-  { className: "left-[8%] top-[14%] h-[22vh] w-[56vw]", pos: "52% 40%" },
+  { className: "left-[2%] top-[5%] h-[16vh] w-[46vw]", pos: "30% 44%" },
+  { className: "right-[-10%] top-[11%] h-[20vh] w-[56vw]", pos: "70% 40%" },
+  { className: "left-[-16%] top-[3%] h-[18vh] w-[52vw]", pos: "50% 38%" },
 ];
+
+/** Mobile grounding cloud bank: soft, wide masked copies of the sky sitting AT
+    the house base (z-30, above the house's z-20) so the cutout's hard,
+    alpha-faded edge sinks into cloud instead of floating over open sky — the
+    same "clouds swallow the base" trick the desktop composite uses. Static (no
+    drift) so the base stays reliably covered on every device. */
+const GROUND_CLOUDS: { className: string; pos: string }[] = [
+  { className: "left-[-20%] top-[46%] h-[30vh] w-[98vw]", pos: "40% 70%" },
+  { className: "right-[-22%] top-[50%] h-[24vh] w-[86vw]", pos: "78% 72%" },
+];
+
+/** Wider, flatter mask than CLOUD_MASK so the grounding pair reads as a bank
+    stretched across the base, not two discrete circular puffs. */
+const BAND_MASK =
+  "radial-gradient(ellipse 62% 52% at 50% 42%, black 44%, transparent 80%)";
+
+const bandStyle = (pos: string): CSSProperties => ({
+  backgroundImage: "url(/assets/hero/sky.webp)",
+  backgroundSize: "185%",
+  backgroundPosition: pos,
+  WebkitMaskImage: BAND_MASK,
+  maskImage: BAND_MASK,
+  filter: "blur(7px) brightness(1.1)",
+});
 
 export default function Hero() {
   const sectionRef = useRef<HTMLElement>(null);
@@ -98,9 +123,10 @@ export default function Hero() {
           fill
           priority
           sizes="100vw"
-          className="object-cover object-[50%_35%]"
+          className="object-cover object-[50%_30%]"
         />
 
+        {/* Ambient drifting puffs in the open sky above the house. */}
         {MOBILE_CLOUDS.map(({ className, pos }, i) => (
           <div
             key={i}
@@ -111,19 +137,33 @@ export default function Hero() {
           />
         ))}
 
-        {/* House rests in the cloud band, upper-middle. */}
-        <div className="absolute inset-x-0 top-[16%] z-20 flex justify-center">
-          <div className="relative w-[74vw] max-w-[380px] aspect-[2604/1492]">
+        {/* House — larger and base-anchored to ~56% (h-[56%] + items-end) so it
+            rises out of the grounding bank below rather than floating mid-sky.
+            No drop shadow: the cloud bank, not a cast shadow, gives it depth. */}
+        <div className="absolute inset-x-0 top-0 z-20 flex h-[56%] items-end justify-center">
+          <div className="relative w-[92vw] max-w-[440px] aspect-[2604/1492]">
             <Image
               src="/assets/hero/house-cutout.png"
               alt=""
               fill
               priority
-              sizes="74vw"
-              className="object-contain drop-shadow-[0_20px_44px_rgba(10,30,50,0.35)]"
+              sizes="92vw"
+              className="object-contain"
             />
           </div>
         </div>
+
+        {/* Grounding cloud bank — sits AT the house base (z-30, above the
+            house's z-20), swallowing the cutout's hard edge so it reads as
+            emerging from cloud. */}
+        {GROUND_CLOUDS.map(({ className, pos }, i) => (
+          <div
+            key={i}
+            aria-hidden
+            className={`absolute z-30 ${className}`}
+            style={bandStyle(pos)}
+          />
+        ))}
 
         {/* Bottom-anchored brand lockup: wordmark (fit width) → tagline →
             subcopy → CTA. */}

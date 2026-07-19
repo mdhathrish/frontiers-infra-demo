@@ -19,56 +19,38 @@
  *   word sequences >5 words / { amount: 0.4 } for clip & line wipes
  * - hygiene: willChange set before / reset after, clearProps on clip-paths
  *
- * Static fallback: every factory checks `motionStatic()` (reduced motion OR
- * <768px viewport, per the project's mobile rule) and resolves to an
- * instant-set of the final state (empty timeline, no motion).
+ * Mobile parity (Phase 2): every factory runs its REAL choreography on mobile,
+ * retimed via `mobileMotion()` (content reveals ~1.8s with tighter staggers;
+ * scrub presets run with their normal triggers). The reference animates its
+ * mobile sections rather than flat-fading them — so only `prefersReducedMotion()`
+ * resolves a factory to an instant-set / static final state (empty timeline).
  */
-import {
-  gsap,
-  SplitText,
-  motionStatic,
-  prefersReducedMotion,
-  mobileMotion,
-} from "./gsap";
+import { gsap, SplitText, prefersReducedMotion, mobileMotion } from "./gsap";
 
 /** Timeline plus an optional cleanup that reverts DOM mutations (SplitText wrappers, injected overlay divs). `useReveal` calls it on unmount. */
 export type PresetTimeline = gsap.core.Timeline & { cleanup?: () => void };
 
 const REVEAL_DURATION = 3.6;
 
-/** Mobile-pass duration for the simple fadeUp every content preset degrades to
- *  below 768px — short and buttery, no SplitText, no clip-path (spec §5 /
- *  CLAUDE.md: "simple fadeUp once-triggers … no scrub, no pinning"). */
-const MOBILE_REVEAL_DURATION = 0.9;
-
 /**
- * The single reveal every content preset (word/line/clip/fade) collapses to on
- * a <768px viewport: targets rise `y 20 → 0` while fading in, once. No layout-
- * thrashing SplitText, no clip-path — cheap enough for low-end phones and
- * identical across sections so mobile reads as one system, not a downscaled
- * desktop. Reduced-motion users never reach here (they instant-set instead).
+ * Mobile parity (Phase 2): below 768px the content presets no longer collapse
+ * to a generic fadeUp — they run the SAME real choreography as desktop (word
+ * masks, clip wipes, line wipes), because the reference animates its mobile
+ * sections, it doesn't flat-fade them. They're just retimed: snappier than
+ * desktop's deliberately buttery 3.6s, closer to the reference's ~1.8s, so the
+ * SplitText-heavy reveals stay smooth on phones. One shared set of mobile
+ * timings keeps every section reading as one system, not a downscaled desktop.
+ * Reduced-motion users never reach here (they instant-set their final state).
  */
-function mobileFadeUp(targets: gsap.DOMTarget): PresetTimeline {
-  const tl = gsap.timeline() as PresetTimeline;
-  const els = gsap.utils.toArray<Element>(targets);
-  if (!els.length) return tl;
-  gsap.set(els, { willChange: "transform" });
-  tl.fromTo(
-    els,
-    { y: 20, autoAlpha: 0 },
-    {
-      y: 0,
-      autoAlpha: 1,
-      duration: MOBILE_REVEAL_DURATION,
-      ease: "power2.out",
-      stagger: 0.1,
-    }
-  );
-  tl.eventCallback("onComplete", () => {
-    gsap.set(els, { willChange: "auto" });
-  });
-  return tl;
-}
+const REVEAL_DURATION_MOBILE = 1.8;
+
+/** Mobile stagger windows — tighter than desktop so multi-item reveals resolve
+ *  quickly on a small screen. `words` for word sequences, `wipe` for clip/line
+ *  wipes (mirrors the desktop { amount: 0.85 } / { amount: 0.4 } pair). */
+const MOBILE_STAGGER = {
+  words: { amount: 0.4 } as gsap.StaggerVars,
+  wipe: { amount: 0.2 } as gsap.StaggerVars,
+};
 
 /** Merge several presets into one timeline (all starting at 0), preserving their cleanups. */
 export function compose(...presets: PresetTimeline[]): PresetTimeline {
@@ -92,7 +74,7 @@ export function compose(...presets: PresetTimeline[]): PresetTimeline {
 export function wordMask(
   target: Element,
   {
-    duration = REVEAL_DURATION,
+    duration,
     ease = "power2.out",
     stagger,
   }: {
@@ -106,7 +88,7 @@ export function wordMask(
     gsap.set(target, { autoAlpha: 1 });
     return tl;
   }
-  if (mobileMotion()) return mobileFadeUp(target);
+  const mobile = mobileMotion();
   const masks = new SplitText(target, { type: "words" });
   const words = new SplitText(target, { type: "words" });
   gsap.set(masks.words, {
@@ -122,9 +104,17 @@ export function wordMask(
     { yPercent: 115 },
     {
       yPercent: 0,
-      duration,
+      duration: duration ?? (mobile ? REVEAL_DURATION_MOBILE : REVEAL_DURATION),
       ease,
-      stagger: stagger ?? (words.words.length > 5 ? { amount: 0.85 } : 0.22),
+      stagger:
+        stagger ??
+        (words.words.length > 5
+          ? mobile
+            ? MOBILE_STAGGER.words
+            : { amount: 0.85 }
+          : mobile
+            ? 0.12
+            : 0.22),
     }
   );
   tl.eventCallback("onComplete", () => {
@@ -153,16 +143,16 @@ export function clipWipe(
     gsap.set(targets, { autoAlpha: 1 });
     return tl;
   }
-  if (mobileMotion()) return mobileFadeUp(targets);
+  const mobile = mobileMotion();
   gsap.set(targets, { autoAlpha: 1 });
   tl.fromTo(
     targets,
     { clipPath: from === "right" ? "inset(0 0 0 100%)" : "inset(0 100% 0 0)" },
     {
       clipPath: "inset(0 0% 0 0%)",
-      duration: REVEAL_DURATION,
+      duration: mobile ? REVEAL_DURATION_MOBILE : REVEAL_DURATION,
       ease: "power2.out",
-      stagger: { amount: 0.4 },
+      stagger: mobile ? MOBILE_STAGGER.wipe : { amount: 0.4 },
       clearProps: "clipPath",
     }
   );
@@ -179,9 +169,9 @@ export function fadeUp(
   targets: gsap.DOMTarget,
   {
     direction = "y",
-    duration = REVEAL_DURATION,
+    duration,
     ease = "power2.out",
-    stagger = 0.22,
+    stagger,
     fadeDuration = 0.4,
   }: {
     direction?: "x" | "y";
@@ -197,22 +187,26 @@ export function fadeUp(
     gsap.set(els, { autoAlpha: 1 });
     return tl;
   }
-  if (mobileMotion()) return mobileFadeUp(els);
+  const mobile = mobileMotion();
+  const dur = duration ?? (mobile ? REVEAL_DURATION_MOBILE : REVEAL_DURATION);
+  const stag = stagger ?? (mobile ? 0.12 : 0.22);
+  // Shorter travel on mobile so the rise reads as a settle, not a long slide.
+  const dist = mobile ? 28 : 70;
   gsap.set(els, { willChange: "transform" });
   tl.fromTo(
     els,
-    direction === "x" ? { x: 70 } : { y: 70 },
+    direction === "x" ? { x: dist } : { y: dist },
     {
       ...(direction === "x" ? { x: 0 } : { y: 0 }),
-      duration,
+      duration: dur,
       ease,
-      stagger,
+      stagger: stag,
     },
     0
   ).fromTo(
     els,
     { autoAlpha: 0 },
-    { autoAlpha: 1, duration: fadeDuration, ease: "none", stagger },
+    { autoAlpha: 1, duration: fadeDuration, ease: "none", stagger: stag },
     0
   );
   tl.eventCallback("onComplete", () => {
@@ -242,7 +236,7 @@ export function lineWipe(
     gsap.set(target, { autoAlpha: 1 });
     return tl;
   }
-  if (mobileMotion()) return mobileFadeUp(target);
+  const mobile = mobileMotion();
   gsap.set(target, { autoAlpha: 1 });
   // aria: "none" — the lineWipe target is a roleless wrapper div holding the
   // real h2/p. SplitText's default ("auto") moves an aria-label onto that div
@@ -284,9 +278,9 @@ export function lineWipe(
   });
   tl.to(overlays, {
     scaleX: 0,
-    duration: REVEAL_DURATION,
+    duration: mobile ? REVEAL_DURATION_MOBILE : REVEAL_DURATION,
     ease: "power2.out",
-    stagger: { amount: 0.4 },
+    stagger: mobile ? MOBILE_STAGGER.wipe : { amount: 0.4 },
   });
   tl.eventCallback("onComplete", () => {
     gsap.set(overlays, { willChange: "auto" });
@@ -326,7 +320,9 @@ export function parallax(
   } = {}
 ): PresetTimeline {
   const tl = gsap.timeline() as PresetTimeline;
-  if (motionStatic()) return tl;
+  // Phase 2: runs on mobile too (the reference scrubs its mobile ambient
+  // parallax). Only reduced motion opts out entirely.
+  if (prefersReducedMotion()) return tl;
   const fromVars: gsap.TweenVars = { y: fromY };
   const toVars: gsap.TweenVars = { y: toY, ease: "none" };
   if (scale) [fromVars.scale, toVars.scale] = scale;
@@ -386,8 +382,9 @@ export function fadeIn(
 export function chevronDrift(targets: gsap.DOMTarget): PresetTimeline {
   const tl = gsap.timeline() as PresetTimeline;
   const els = gsap.utils.toArray<Element>(targets);
-  // Static fallback: items ship visible in markup — nothing to do.
-  if (motionStatic() || els.length < 2) return tl;
+  // Static fallback: items ship visible in markup — nothing to do. Runs on
+  // mobile now (Phase 2); only reduced motion keeps the row static.
+  if (prefersReducedMotion() || els.length < 2) return tl;
   gsap.set(els, { willChange: "transform" });
   tl.fromTo(
     els.slice(1),
@@ -410,13 +407,14 @@ export const chevronTrigger = {
  * y "-40%" → "0%", scale .98 → 1, opacity fades in over just the first 30%
  * of the scrub range, power1.out. Pair with `footerRevealTrigger`
  * (scrub: true, top bottom → bottom bottom) — the classic "footer parked
- * behind the page" reveal. Desktop-only is handled for free: `motionStatic()`
- * already gates <768px, so no separate matchMedia is needed (spec §5 calls
- * out the original's per-breakpoint gating as unnecessary complexity).
+ * behind the page" reveal. Runs on mobile too (Phase 2 parity); only reduced
+ * motion drops to the static final state.
  */
 export function footerReveal(target: gsap.DOMTarget): PresetTimeline {
   const tl = gsap.timeline() as PresetTimeline;
-  if (motionStatic()) {
+  // Phase 2: the scrubbed slide-up runs on mobile too; only reduced motion
+  // drops to the static final state.
+  if (prefersReducedMotion()) {
     gsap.set(target, { autoAlpha: 1 });
     return tl;
   }

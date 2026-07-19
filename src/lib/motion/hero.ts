@@ -244,14 +244,15 @@ export function mountHero(section: HTMLElement): (() => void) | void {
     return () => cleanups.forEach((fn) => fn());
   });
 
-  // Below 768px: the mobile composition in Hero.tsx IS the hero. Motion-safe
-  // phones get their own scroll cinematic — the section grows to 260vh and the
-  // stage goes sticky (motion-safe: Tailwind variants), so scrolling drives a
-  // scrub that mirrors the desktop beats: sky zooms, the house lifts off and
-  // dissolves, the grounding bank parts. Plus the ambient puff drift, which
-  // also carries the reduced-motion case (there the section stays one screen
-  // and the scrub layers below simply aren't queried differently — but reduced
-  // motion never reaches here anyway, guarded at the top).
+  // Below 768px: the mobile composition in Hero.tsx IS the hero (reference-
+  // parity layout — top-left copy block, house rising from the bottom edge).
+  // Motion-safe phones get their own scroll cinematic — the section grows to
+  // 260vh and the stage goes sticky (motion-safe: Tailwind variants), so
+  // scrolling drives a scrub that mirrors the reference's mobile beats: the sky
+  // zooms, the house lifts out of frame + scales up and dissolves, and the copy
+  // block drifts up as it fades. Plus the ambient puff drift. Reduced motion
+  // never reaches here (guarded at the top), so the static one-screen composite
+  // is its fallback.
   mm.add("(max-width: 767px)", () => {
     const cleanups: (() => void)[] = [];
 
@@ -282,28 +283,30 @@ export function mountHero(section: HTMLElement): (() => void) | void {
       });
     }
 
-    // Scroll cinematic — same tight scrub + range as desktop. The grounding
-    // pair is static markup (no ambient loop), so the scrub owns its transform
+    // Scroll cinematic — same tight scrub + range as desktop. Each layer is
+    // static markup (no ambient loop on these), so the scrub owns its transform
     // outright; no outer/inner split needed here.
     const msky = section.querySelector<HTMLElement>("[data-hero-msky]");
     const mhouse = section.querySelector<HTMLElement>("[data-hero-mhouse]");
-    const mground = Array.from(
-      section.querySelectorAll<HTMLElement>("[data-hero-mground]")
-    );
-    if (msky && mhouse && mground.length === 2) {
-      gsap.set([msky, mhouse, ...mground], { willChange: "transform" });
+    const mcopy = section.querySelector<HTMLElement>("[data-hero-mcopy]");
+    if (msky && mhouse && mcopy) {
+      gsap.set([msky, mhouse, mcopy], { willChange: "transform" });
+      // House scales from its base (pinned to the bottom edge) so it grows
+      // UPWARD out of frame, like the reference building rising on scroll.
+      gsap.set(mhouse, { transformOrigin: "50% 100%" });
       const scrub = gsap.timeline({
         defaults: { ease: "none" },
         scrollTrigger: { trigger: section, ...HERO_SCRUB_TRIGGER },
       });
       scrub
-        .to(msky, { scale: 1.12, duration: 1 }, 0)
-        .to(mhouse, { yPercent: -75, scale: 1.22, duration: 1 }, 0)
-        // House dissolves into the sky over the back half of the lift.
-        .to(mhouse, { autoAlpha: 0, duration: 0.35 }, 0.5)
-        // Bank parts left/right as the house clears it.
-        .to(mground[0], { xPercent: -28, yPercent: 10, duration: 1 }, 0)
-        .to(mground[1], { xPercent: 30, yPercent: 8, duration: 1 }, 0);
+        .to(msky, { scale: 1.14, duration: 1 }, 0)
+        // House rises out of the frame + scales up over the full range…
+        .to(mhouse, { yPercent: -60, scale: 1.28, duration: 1 }, 0)
+        // …dissolving into the sky over the back half of the lift.
+        .to(mhouse, { autoAlpha: 0, duration: 0.4 }, 0.55)
+        // Copy block drifts up and fades over the first ~40% (the reference's
+        // mobile text parallax) so the house owns the frame as you scroll.
+        .to(mcopy, { yPercent: -30, autoAlpha: 0, duration: 0.4 }, 0);
       cleanups.push(() => {
         scrub.scrollTrigger?.kill();
         scrub.kill();

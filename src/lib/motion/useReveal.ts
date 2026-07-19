@@ -8,11 +8,13 @@
  * - scrub is RESERVED and must be passed explicitly — the only scrubbed
  *   things are the hero cinematic (0.1), the chevrons row (3), ambient
  *   parallax (1.5, see `parallaxTrigger`), and the footer slide-up (true).
- *   Scrub is desktop-only: <768px falls through to a once-trigger (spec §5)
+ *   Phase 2: scrub now runs on mobile too (the reference scrubs its mobile
+ *   parallax / chevrons / footer)
  * - reduced motion: factories instant-set their final state at mount, so no
  *   ScrollTrigger is created at all
- * - mobile (<768px, motion allowed): content presets degrade to a simple
- *   fadeUp (see `mobileFadeUp`) driven by the same once-trigger as desktop
+ * - mobile (<768px, motion allowed): content presets run their real
+ *   choreography (word/line/clip wipes), retimed for phones (Phase 2), driven
+ *   by the same once-trigger as desktop
  *
  * Perf (integration QA pass): once-reveals build their preset LAZILY, inside
  * the trigger's `onEnter`, rather than at mount. Building eagerly meant every
@@ -28,12 +30,7 @@
  */
 import { useRef } from "react";
 import { useGSAP } from "@gsap/react";
-import {
-  gsap,
-  ScrollTrigger,
-  prefersReducedMotion,
-  isMobileViewport,
-} from "./gsap";
+import { gsap, ScrollTrigger, prefersReducedMotion } from "./gsap";
 import type { PresetTimeline } from "./presets";
 
 gsap.registerPlugin(useGSAP);
@@ -66,11 +63,10 @@ export function useReveal<T extends HTMLElement = HTMLDivElement>(
 
       // Scrubbed reveals need their timeline attached up front for the scrub to
       // drive — build eagerly (none of these use SplitText, so it's cheap).
-      // On mobile we never scrub (spec §5 / CLAUDE.md): the scrub presets
-      // resolve to their static state in the factory, and the reveal falls
-      // through to the once-trigger below (a no-op for them, a fadeUp for the
-      // content presets), so mobile content still animates in on entry.
-      if (scrub != null && !isMobileViewport()) {
+      // Phase 2: scrub now wires up on mobile too (the reference scrubs its
+      // mobile parallax / chevrons / footer). Reduced motion already returned
+      // above, so no ScrollTrigger is created for it.
+      if (scrub != null) {
         const tl = build(el);
         if (!tl) return;
         ScrollTrigger.create({

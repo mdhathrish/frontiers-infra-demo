@@ -63,37 +63,24 @@ const cloudStyle = (pos: string): CSSProperties => ({
 /** Mobile ambient puffs (§ mobile pass): a few soft masked copies of the sky
     that ride the ambient drift loop in `mountHero`'s mobile matchMedia —
     transform-only, no scroll coupling, so the static composed hero still has
-    one cheap sign of life on phones. Kept in the OPEN SKY above the house so
-    the drift never uncovers its grounded base. */
+    one cheap sign of life on phones. Kept in the MID sky — below the top-left
+    headline block, above the bottom-anchored house — so they never clutter the
+    copy or fight the house's rise. */
 const MOBILE_CLOUDS: { className: string; pos: string }[] = [
-  { className: "left-[2%] top-[5%] h-[16vh] w-[46vw]", pos: "30% 44%" },
-  { className: "right-[-10%] top-[11%] h-[20vh] w-[56vw]", pos: "70% 40%" },
-  { className: "left-[-16%] top-[3%] h-[18vh] w-[52vw]", pos: "50% 38%" },
+  { className: "right-[-12%] top-[26%] h-[18vh] w-[54vw]", pos: "70% 42%" },
+  { className: "left-[-14%] top-[34%] h-[16vh] w-[50vw]", pos: "34% 46%" },
+  { className: "right-[6%] top-[40%] h-[15vh] w-[46vw]", pos: "58% 40%" },
 ];
 
-/** Mobile grounding cloud bank: soft, wide masked copies of the sky sitting AT
-    the house base (z-30, above the house's z-20) so the cutout's hard,
-    alpha-faded edge sinks into cloud instead of floating over open sky — the
-    same "clouds swallow the base" trick the desktop composite uses. Static (no
-    drift) so the base stays reliably covered on every device. */
-const GROUND_CLOUDS: { className: string; pos: string }[] = [
-  { className: "left-[-20%] top-[46%] h-[30vh] w-[98vw]", pos: "40% 70%" },
-  { className: "right-[-22%] top-[50%] h-[24vh] w-[86vw]", pos: "78% 72%" },
-];
-
-/** Wider, flatter mask than CLOUD_MASK so the grounding pair reads as a bank
-    stretched across the base, not two discrete circular puffs. */
-const BAND_MASK =
-  "radial-gradient(ellipse 62% 52% at 50% 42%, black 44%, transparent 80%)";
-
-const bandStyle = (pos: string): CSSProperties => ({
-  backgroundImage: "url(/assets/hero/sky.webp)",
-  backgroundSize: "185%",
-  backgroundPosition: pos,
-  WebkitMaskImage: BAND_MASK,
-  maskImage: BAND_MASK,
-  filter: "blur(7px) brightness(1.1)",
-});
+/** Reference mobile hero sky: a soft blue→peach vertical wash laid OVER our
+    sky.webp (not replacing it). Cool blue tints the top behind the dark
+    headline, the middle clears so the photo reads, and the horizon warms to
+    peach where the house's alpha-faded base dissolves into it — the reference's
+    dreamy sky feel, built from our own asset. */
+const SKY_WASH: CSSProperties = {
+  backgroundImage:
+    "linear-gradient(to bottom, rgba(120,170,215,0.48) 0%, rgba(165,198,222,0.14) 34%, rgba(246,214,190,0.30) 68%, rgba(247,203,172,0.58) 100%)",
+};
 
 export default function Hero() {
   const sectionRef = useRef<HTMLElement>(null);
@@ -114,19 +101,22 @@ export default function Hero() {
       className="relative h-svh max-md:motion-safe:h-[260vh] md:h-[3600px] bg-[#7db3d6]"
     >
       {/* ── Mobile composition (<768px) ──────────────────────────────────
-          Art-directed portrait stack — NOT the desktop composite with its
-          motion switched off. Sky + drifting cloud puffs behind a house that
-          rests in the cloud band, with the wordmark sized to the viewport
-          width and the tagline / subcopy / CTA stacked beneath it.
+          Reference-parity portrait stack (findrealestate.com mobile): a soft
+          blue→peach sky wash, a left-aligned near-black headline block at the
+          TOP (headline · subhead · rule · dark pill CTA), and the house
+          bottom-anchored, rising out of the frame. Text-forward — no giant
+          wordmark (that lockup lives in the nav); the house, not a wordmark, is
+          the hero image.
 
           Motion-safe phones get their own scroll cinematic (mountHero mobile
-          matchMedia): the section grows to 260vh and this stage goes sticky,
-          so scrolling lifts the house off, zooms the sky, and parts the
-          grounding bank — the mobile counterpart to the desktop scrub. Under
-          reduced motion the tall height + sticky both drop out (motion-safe:
-          variants), leaving the static one-screen composite with ambient drift
-          only, so it degrades cleanly. */}
+          matchMedia): the section grows to 260vh and this stage goes sticky, so
+          scrolling zooms the sky, lifts + dissolves the house, and drifts the
+          copy up as it fades — the mobile counterpart to the desktop scrub.
+          Under reduced motion the tall height + sticky both drop out (motion-
+          safe: variants), leaving the static one-screen composite with ambient
+          puff drift only, so it degrades cleanly. */}
       <div className="md:hidden relative motion-safe:sticky motion-safe:top-0 h-svh w-full overflow-hidden">
+        {/* Sky photo (scrub zoom target) */}
         <div data-hero-msky className="absolute inset-0">
           <Image
             src="/assets/hero/sky.webp"
@@ -134,79 +124,76 @@ export default function Hero() {
             fill
             priority
             sizes="100vw"
-            className="object-cover object-[50%_30%]"
+            className="object-cover object-[50%_32%]"
           />
         </div>
 
-        {/* Ambient drifting puffs in the open sky above the house. */}
+        {/* Blue→peach wash over the photo */}
+        <div aria-hidden className="absolute inset-0 z-[5]" style={SKY_WASH} />
+
+        {/* Ambient drifting puffs in the mid sky */}
         {MOBILE_CLOUDS.map(({ className, pos }, i) => (
           <div
             key={i}
             data-hero-mcloud
             aria-hidden
-            className={`absolute ${className}`}
+            className={`absolute z-[6] ${className}`}
             style={cloudStyle(pos)}
           />
         ))}
 
-        {/* House — larger and base-anchored to ~56% (h-[56%] + items-end) so it
-            rises out of the grounding bank below rather than floating mid-sky.
-            No drop shadow: the cloud bank, not a cast shadow, gives it depth. */}
-        <div className="absolute inset-x-0 top-0 z-20 flex h-[56%] items-end justify-center">
+        {/* House — bottom-anchored and oversized so its base bleeds off the
+            bottom edge and rises out of frame on scroll. The cutout's alpha-
+            faded base dissolves into the peach horizon (no hard edge, no cloud
+            bank needed). object-bottom keeps the base pinned as it scales. */}
+        <div className="absolute inset-x-0 bottom-0 z-20 flex justify-center">
           <div
             data-hero-mhouse
-            className="relative w-[92vw] max-w-[440px] aspect-[2604/1492]"
+            className="relative w-[150vw] max-w-[680px] shrink-0 aspect-[2604/1492] origin-bottom"
           >
             <Image
               src="/assets/hero/house-cutout.png"
               alt=""
               fill
               priority
-              sizes="92vw"
-              className="object-contain"
+              sizes="116vw"
+              className="object-contain object-bottom"
             />
           </div>
         </div>
 
-        {/* Grounding cloud bank — sits AT the house base (z-30, above the
-            house's z-20), swallowing the cutout's hard edge so it reads as
-            emerging from cloud. On motion-safe scroll the pair parts (index 0
-            left, 1 right) as the house lifts off. */}
-        {GROUND_CLOUDS.map(({ className, pos }, i) => (
-          <div
-            key={i}
-            data-hero-mground
-            aria-hidden
-            className={`absolute z-30 ${className}`}
-            style={bandStyle(pos)}
-          />
-        ))}
-
-        {/* Bottom-anchored brand lockup: wordmark (fit width) → tagline →
-            subcopy → CTA. */}
-        <div className="absolute inset-x-0 bottom-0 z-40 flex flex-col items-center gap-4 px-6 pb-[max(2.5rem,env(safe-area-inset-bottom))] text-center">
-          <svg
-            viewBox={LOGO_VIEWBOX}
-            role="img"
-            aria-label="Frontier Infra"
-            className="w-[84vw] max-w-[440px] text-white [filter:drop-shadow(0_2px_16px_rgba(20,40,60,0.35))]"
-          >
-            {LOGO_PATHS.map(({ letter, d }, i) => (
-              <path key={`${letter}-${i}`} d={d} fill="currentColor" />
-            ))}
-          </svg>
-          <h1 className="text-lg font-medium tracking-tight text-white [text-shadow:0_1px_12px_rgba(20,40,60,0.4)]">
+        {/* Top-left headline block: headline → subhead → rule → dark pill CTA.
+            One `data-hero-mcopy` target so the scrub can drift it up + fade it
+            as the house rises. pt clears the fixed nav. */}
+        <div
+          data-hero-mcopy
+          className="absolute inset-x-0 top-0 z-40 flex flex-col items-start gap-5 px-6 pt-28 text-left"
+        >
+          <h1 className="max-w-[9ch] text-[clamp(2.1rem,10vw,3rem)] font-semibold leading-[1.04] tracking-tight text-slate-900">
             Find Your Next Frontier
           </h1>
-          <p className="max-w-xs text-sm leading-relaxed text-white/90 [text-shadow:0_1px_10px_rgba(20,40,60,0.4)]">
+          <p className="max-w-[26ch] text-[0.95rem] font-medium leading-relaxed text-slate-700">
             Homes, land, and infrastructure — curated for the way you want to
             live.
           </p>
+          <span aria-hidden className="block h-px w-16 bg-slate-500/50" />
           <a
             href="#why-us"
-            className="mt-1 rounded-full bg-white px-7 py-3 text-sm font-medium text-slate-900 shadow-[0_6px_24px_rgba(10,30,50,0.25)]"
+            className="inline-flex items-center gap-2 rounded-full bg-slate-900 px-6 py-3 text-sm font-medium text-white shadow-[0_8px_28px_rgba(10,20,35,0.28)]"
           >
             Explore Properties
+            <svg
+              aria-hidden
+              viewBox="0 0 24 24"
+              className="h-4 w-4"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={2}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M5 12h14M13 6l6 6-6 6" />
+            </svg>
           </a>
         </div>
       </div>

@@ -34,7 +34,7 @@ const CLOUDS: { name: string; className: string; pos: string }[] = [
     // Front-left bank, raised and widened so it laps over the house base and
     // overlaps cloud-r across the centre (was leaving the mid-base exposed).
     name: "cloud-l",
-    className: "left-[-16%] bottom-[-2%] w-[90vw] h-[62vh] z-30",
+    className: "left-[-18%] bottom-[-12%] w-[84vw] h-[50vh] z-30",
     pos: "28% 72%",
   },
   {
@@ -46,7 +46,7 @@ const CLOUDS: { name: string; className: string; pos: string }[] = [
   {
     // Front-right bank, mirror of cloud-l.
     name: "cloud-r",
-    className: "right-[-16%] bottom-[-2%] w-[94vw] h-[64vh] z-30",
+    className: "right-[-18%] bottom-[-12%] w-[88vw] h-[52vh] z-30",
     pos: "72% 72%",
   },
 ];
@@ -238,20 +238,27 @@ export default function Hero() {
             The cutout asset is pre-leveled and its base alpha-fades out
             (scripts/process-house-cutout.py), so it rests in the clouds
             instead of ending on a hard edge. */}
+        {/* Desktop sizing: the house is the hero image, so it spans most of
+            the stage (capped by height so short/wide windows don't push the
+            roof into the headline), and its base sinks ~8% of its width below
+            the frame — the soft ground floor bleeds off-screen into the cloud
+            bank instead of fading out mid-viewport. Uses the desktop asset
+            with the lower facade's matte restored to full opacity
+            (scripts/boost-house-facade.py). */}
         <div
           data-hero="house"
-          className="absolute z-20 inset-x-0 bottom-[-2%] flex justify-center"
+          className="absolute z-20 inset-x-0 bottom-[calc(min(86vw,128svh,1640px)*-0.08)] flex justify-center"
         >
           <div
             data-hero="house-inner"
-            className="relative w-[min(140vw,560px)] md:w-[min(66vw,1080px)] aspect-[2604/1492]"
+            className="relative w-[min(86vw,128svh,1640px)] shrink-0 aspect-[2604/1492]"
           >
             <Image
-              src="/assets/hero/house-cutout.png"
+              src="/assets/hero/house-cutout-desktop.png"
               alt=""
               fill
               priority
-              sizes="(min-width: 768px) 66vw, 140vw"
+              sizes="86vw"
               className="object-contain drop-shadow-[0_30px_60px_rgba(10,30,50,0.35)]"
             />
           </div>
@@ -260,7 +267,7 @@ export default function Hero() {
         {/* Title block */}
         <div
           data-hero="title"
-          className="absolute z-40 inset-x-0 top-[12%] md:top-[14%] flex flex-col items-center px-6 text-center"
+          className="absolute z-40 inset-x-0 top-[12%] md:top-[10%] flex flex-col items-center px-6 text-center"
         >
           <h1
             data-hero="headline"

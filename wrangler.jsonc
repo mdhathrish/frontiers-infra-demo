@@ -1,0 +1,10 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "frontiers-infra-demo",
+  "compatibility_date": "2026-10-09",
+  // Static site: serve the files produced by `next build` (output: "export").
+  "assets": {
+    "directory": "./out",
+    "not_found_handling": "404-page"
+  }
+}

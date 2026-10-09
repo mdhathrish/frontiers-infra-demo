@@ -6,7 +6,9 @@
     "dev": "next dev --turbopack",
     "build": "next build --turbopack",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "deploy": "next build --turbopack && wrangler deploy",
+    "preview": "next build --turbopack && wrangler dev"
   },
   "dependencies": {
     "@gsap/react": "^2.1.2",
@@ -25,6 +27,7 @@
     "eslint": "^9",
     "eslint-config-next": "15.5.20",
     "tailwindcss": "^4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "wrangler": "^4.149.0"
   }
 }

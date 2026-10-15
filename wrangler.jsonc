@@ -6,7 +6,7 @@
   "assets": {
     "directory": "./out",
     "not_found_handling": "404-page"
-  }
+  },
 "routes": [
   { "pattern": "frontier.justwebsites.in", "custom_domain": true }
 ]

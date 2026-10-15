@@ -152,7 +152,7 @@ export default function Hero() {
             className="relative w-[150vw] max-w-[680px] shrink-0 aspect-[2604/1492] origin-bottom"
           >
             <Image
-              src="/assets/hero/house-cutout.png"
+              src="/assets/hero/house-cutout.webp"
               alt=""
               fill
               priority
@@ -254,7 +254,7 @@ export default function Hero() {
             className="relative w-[min(86vw,128svh,1640px)] shrink-0 aspect-[2604/1492]"
           >
             <Image
-              src="/assets/hero/house-cutout-desktop.png"
+              src="/assets/hero/house-cutout-desktop.webp"
               alt=""
               fill
               priority
@@ -350,7 +350,7 @@ export default function Hero() {
                       upper glass band — one horizontal sweep, above the palm
                       and well clear of the base fade zone. */}
                   <image
-                    href="/assets/hero/house-cutout.png"
+                    href="/assets/hero/house-cutout.webp"
                     x="-131"
                     y="-113"
                     width="1310"
